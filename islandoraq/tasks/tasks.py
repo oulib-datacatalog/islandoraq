@@ -30,3 +30,13 @@ def ingest_recipe(recipe_url, collection='islandora:bookCollection'):
 
     return("SUCCESS")  # TODO: return islandora url for ingested book
 
+
+# added to asssist with testing connectivity
+@task()
+def add(x, y):
+    """ Example task that adds two numbers or strings
+        args: x and y
+        return addition or concatination of strings
+    """
+    result = x + y
+    return result
