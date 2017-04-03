@@ -8,30 +8,31 @@ logging.basicConfig(level=logging.INFO)
 
 
 @task()
-def ingest_recipe(recipe_url, collection='islandora:bookCollection'):
+def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     """
     Ingest recipe json file into Islandora repository.
     
     This kickstarts the Islandora local process to import a book collection.
     
     args:
-      recipe_url: URL pointing to json formatted recipe file
+      recipe_urls: List of URLs pointing to json formatted recipe files
       collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection  
     """
-    tmpdir = mkdtemp(prefix="recipeloader_")
-    try:
-        check_call(['drush',
-                    '-u', '1',
-                    'oubib',
-                    '--recipe_uri={0}'.format(recipe_url),
-                    '--parent_collection={0}'.format(collection),
-                    '--tmp_dir={0}'.format(tmpdir),
-                    '--root=/srv/test/drupal/'])
-    except CalledProcessError as err:
-        logging.error(err)
-        return({"ERROR": err})
-    finally:
-        rmtree(tmpdir)
+    for recipe_url in recipe_urls:
+        tmpdir = mkdtemp(prefix="recipeloader_")
+        try:
+            check_call(['drush',
+                        '-u', '1',
+                        'oubib',
+                        '--recipe_uri={0}'.format(recipe_url),
+                        '--parent_collection={0}'.format(collection),
+                        '--tmp_dir={0}'.format(tmpdir),
+                        '--root=/srv/test/drupal/'])
+        except CalledProcessError as err:
+            logging.error(err)
+            return({"ERROR": err})
+        finally:
+            rmtree(tmpdir)
 
     return("SUCCESS")  # TODO: return islandora url for ingested book
 
