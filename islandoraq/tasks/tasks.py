@@ -9,8 +9,6 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
 logging.basicConfig(level=logging.INFO)
 
-logging.error(ISLANDORA_DRUPAL_ROOT)
-
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
