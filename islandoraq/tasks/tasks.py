@@ -9,7 +9,7 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
 logging.basicConfig(level=logging.INFO)
 
-logging.warn(ISLANDORA_DRUPAL_ROOT)
+logging.error(ISLANDORA_DRUPAL_ROOT)
 
 
 @task()
