@@ -9,6 +9,8 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
 logging.basicConfig(level=logging.INFO)
 
+logging.info(ISLANDORA_DRUPAL_ROOT)
+
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -30,7 +32,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                         '--recipe_uri={0}'.format(recipe_url),
                         '--parent_collection={0}'.format(collection),
                         '--tmp_dir={0}'.format(tmpdir),
-                        '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
+                        '--root={0}'.format('/srv/test/drupal/')])
         except CalledProcessError as err:
             logging.error(err)
             return({"ERROR": err})
