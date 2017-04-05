@@ -1,12 +1,13 @@
 from celery.task import task
+from os import environ
 from subprocess import check_call, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
-from celeryconfig import ISLANDORA_DRUPAL_ROOT
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
+islandora_drupal_root = environ.get('ISLANDORA_DRUPAL_ROOT')
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -28,7 +29,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                         '--recipe_uri={0}'.format(recipe_url),
                         '--parent_collection={0}'.format(collection),
                         '--tmp_dir={0}'.format(tmpdir),
-                        '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
+                        '--root={0}'.format(islandora_drupal_root)])
         except CalledProcessError as err:
             logging.error(err)
             return({"ERROR": err})
