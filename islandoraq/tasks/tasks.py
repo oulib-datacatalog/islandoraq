@@ -23,7 +23,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     """
     
     for recipe_url in recipe_urls:
-        tmpdir = mkdtemp(prefix="recipeloader_")
+        #tmpdir = mkdtemp(prefix="recipeloader_")
         #try:
         #    check_call(['drush',
         #                '-u', '1',
@@ -43,9 +43,9 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
               'oubib',
               '--recipe_uri={0}'.format(recipe_url),
               '--parent_collection={0}'.format(collection),
-              '--tmp_dir={0}'.format(tmpdir),
+              '--tmp_dir=/tmp',
               '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
-        rmtree(tmpdir)
+        
         return("SUCCESS")  # TODO: return islandora url for ingested book
 
 
