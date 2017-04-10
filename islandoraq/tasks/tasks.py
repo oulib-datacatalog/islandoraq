@@ -26,7 +26,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     return(['drush',
             '-u', '1',
             'oubib',
-            '--recipe_uri={0}'.format(recipe_url),
+            '--recipe_uri={0}'.format(recipe_urls),
             '--parent_collection={0}'.format(collection),
             '--tmp_dir={0}'.format(tmpdir),
             '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
