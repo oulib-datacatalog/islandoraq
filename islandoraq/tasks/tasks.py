@@ -1,6 +1,6 @@
 from celery.task import task
 from os import environ
-from subprocess import check_call, CalledProcessError
+from subprocess import check_call, CalledProcessError, call
 from shutil import rmtree
 from tempfile import mkdtemp
 import logging
@@ -22,32 +22,31 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
       collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection  
     """
     
-    #tmpdir = mkdtemp(prefix="recipeloader_")
-    #return(['drush',
-    #        '-u', '1',
-    #        'oubib',
-    #        '--recipe_uri={0}'.format(recipe_urls),
-    #        '--parent_collection={0}'.format(collection),
-    #        '--tmp_dir={0}'.format(tmpdir),
-    #        '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
-
     for recipe_url in recipe_urls:
         tmpdir = mkdtemp(prefix="recipeloader_")
-        try:
-            check_call(['drush',
-                        '-u', '1',
-                        'oubib',
-                        '"--recipe_uri={0}"'.format(recipe_url),
-                        '"--parent_collection={0}"'.format(collection),
-                        '"--tmp_dir={0}"'.format(tmpdir),
-                        '"--root={0}"'.format(ISLANDORA_DRUPAL_ROOT)])
-        except CalledProcessError as err:
-            logging.error(err)
-            return({"ERROR": err})
-        finally:
-            rmtree(tmpdir)
+        #try:
+        #    check_call(['drush',
+        #                '-u', '1',
+        #                'oubib',
+        #                '--recipe_uri={0}'.format(recipe_url),
+        #                '--parent_collection={0}'.format(collection),
+        #                '--tmp_dir={0}'.format(tmpdir),
+        #                '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
+        #except CalledProcessError as err:
+        #    logging.error(err)
+        #    return({"ERROR": err})
+        #finally:
+        #    rmtree(tmpdir)
 
-    return("SUCCESS")  # TODO: return islandora url for ingested book
+        call(['drush',
+              '-u', '1',
+              'oubib',
+              '--recipe_uri={0}'.format(recipe_url),
+              '--parent_collection={0}'.format(collection),
+              '--tmp_dir={0}'.format(tmpdir),
+              '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
+        rmtree(tmpdir)
+        return("SUCCESS")  # TODO: return islandora url for ingested book
 
 
 # added to asssist with testing connectivity
