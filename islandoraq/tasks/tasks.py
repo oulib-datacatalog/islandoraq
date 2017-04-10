@@ -21,6 +21,17 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
       recipe_urls: List of URLs pointing to json formatted recipe files
       collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection  
     """
+    
+    tmpdir = mkdtemp(prefix="recipeloader_")
+    return(['drush',
+            '-u', '1',
+            'oubib',
+            '--recipe_uri={0}'.format(recipe_url),
+            '--parent_collection={0}'.format(collection),
+            '--tmp_dir={0}'.format(tmpdir),
+            '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
+
+
     for recipe_url in recipe_urls:
         tmpdir = mkdtemp(prefix="recipeloader_")
         try:
