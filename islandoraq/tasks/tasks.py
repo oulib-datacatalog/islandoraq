@@ -31,7 +31,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                         '--parent_collection={0}'.format(collection),
                         '--tmp_dir={0}'.format(tmpdir),
                         #'--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
-                        '--root=/srv/test/drupal/'
+                        '--root=/srv/test/drupal/'])
         except CalledProcessError as err:
             logging.error(err)
             return({"ERROR": err})
