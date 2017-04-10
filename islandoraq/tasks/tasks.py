@@ -23,29 +23,22 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     """
     
     for recipe_url in recipe_urls:
-        #tmpdir = mkdtemp(prefix="recipeloader_")
-        #try:
-        #    check_call(['drush',
-        #                '-u', '1',
-        #                'oubib',
-        #                '--recipe_uri={0}'.format(recipe_url),
-        #                '--parent_collection={0}'.format(collection),
-        #                '--tmp_dir={0}'.format(tmpdir),
-        #                '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
-        #except CalledProcessError as err:
-        #    logging.error(err)
-        #    return({"ERROR": err})
-        #finally:
-        #    rmtree(tmpdir)
+        tmpdir = mkdtemp(prefix="recipeloader_")
+        try:
+            check_call(['drush', '-u', '1', 'oubib',
+                        '--recipe_uri={0}'.format(recipe_url),
+                        '--parent_collection={0}'.format(collection),
+                        '--tmp_dir={0}'.format(tmpdir),
+                        '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
+                        ],
+                       shell=True
+                       )
+        except CalledProcessError as err:
+            logging.error(err)
+            return({"ERROR": err})
+        finally:
+            rmtree(tmpdir)
 
-        call(['drush',
-              '-u', '1',
-              'oubib',
-              '--recipe_uri={0}'.format(recipe_url),
-              '--parent_collection={0}'.format(collection),
-              '--tmp_dir=/tmp',
-              '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)])
-        
         return("SUCCESS")  # TODO: return islandora url for ingested book
 
 
