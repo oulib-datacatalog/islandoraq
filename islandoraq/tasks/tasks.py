@@ -34,7 +34,9 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                         '--parent_collection={0}'.format(collection),
                         '--tmp_dir={0}'.format(tmpdir),
                         '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
-                        ])
+                        ],
+                       shell=True
+                       )
         except CalledProcessError as err:
             logging.error(err)
             return({"ERROR": err})

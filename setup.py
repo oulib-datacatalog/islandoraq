@@ -2,7 +2,7 @@
 #ez_setup.use_setuptools()
 from setuptools import setup, find_packages
 setup(name='islandoraq',
-      version='0.2.6.14',
+      version='0.2.6.15',
       packages= find_packages(),
       install_requires=[
           'celery==3.1.22',
