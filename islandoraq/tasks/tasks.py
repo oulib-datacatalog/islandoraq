@@ -29,14 +29,15 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         chmod(tmpdir, 0o775)
         chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
         try:
-            check_call(['drush', '-u', '1', 'oubib',
-                        '--recipe_uri={0}'.format(recipe_url),
-                        '--parent_collection={0}'.format(collection),
-                        '--tmp_dir={0}'.format(tmpdir),
-                        '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
-                        ],
-                       shell=True
-                       )
+        #    check_call(['drush', '-u', '1', 'oubib',
+        #                '--recipe_uri={0}'.format(recipe_url),
+        #                '--parent_collection={0}'.format(collection),
+        #                '--tmp_dir={0}'.format(tmpdir),
+        #                '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
+        #                ],
+        #               shell=True
+        #               )
+            pass
         except CalledProcessError as err:
             logging.error(err)
             return({"ERROR": err})
