@@ -1,9 +1,11 @@
 from celery.task import task
-from os import environ
-from subprocess import check_call, CalledProcessError, call
+from os import chown
+from os import chmod
+from subprocess import check_call, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
 import logging
+import grp
 
 from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
@@ -24,15 +26,15 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     
     for recipe_url in recipe_urls:
         tmpdir = mkdtemp(prefix="recipeloader_")
+        chmod(tmpdir, 0o775)
+        chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
         try:
             check_call(['drush', '-u', '1', 'oubib',
                         '--recipe_uri={0}'.format(recipe_url),
                         '--parent_collection={0}'.format(collection),
                         '--tmp_dir={0}'.format(tmpdir),
                         '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
-                        ],
-                       shell=True
-                       )
+                        ])
         except CalledProcessError as err:
             logging.error(err)
             return({"ERROR": err})
