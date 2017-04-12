@@ -13,7 +13,7 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT
 logging.basicConfig(level=logging.INFO)
 
 needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
-
+environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -23,26 +23,26 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     This kickstarts the Islandora local process to import a book collection.
     
     args:
-      recipe_urls: List of URLs pointing to json formatted recipe files
+      recipe_urls: Comma seperated string of URLs pointing to json formatted recipe files
       collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection  
     """
     logging.error("ingest recipe args: {0}, {1}".format(recipe_urls, collection)) # debug
     logging.error("Environment: {0}".format(environ)) # debug
-    for recipe_url in recipe_urls:
-        logging.error("ingesting: {0}".format(recipe_url)) # debug
+    logging.error("root path: {0}".format(ISLANDORA_DRUPAL_ROOT) # debug
+    for recipe_url in recipe_urls.split(","):
+        logging.error("ingesting: {0}".format(recipe_url.strip())) # debug
         tmpdir = mkdtemp(prefix="recipeloader_")
         logging.error("created working dir: {0}".format(tmpdir)) # debug
         chmod(tmpdir, 0o775)
         chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
         try:
             check_call(['drush', '-u', '1', 'oubib',
-                        '--recipe_uri={0}'.format(recipe_url),
+                        '--recipe_uri={0}'.format(recipe_url.strip()),
                         '--parent_collection={0}'.format(collection),
                         '--tmp_dir={0}'.format(tmpdir),
                         '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
                         ],
-                       shell=True,
-                       env={"PATH": pathsep.join(needed_paths) + pathsep + environ["PATH"]}
+                       shell=True
                        )
         except CalledProcessError as err:
             logging.error(err)
