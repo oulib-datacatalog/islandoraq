@@ -60,7 +60,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             logging.error("removed working dir") # debug
             pass
 
-        return({"Successful": success, "Failures": fail)
+        return({"Successful": success, "Failures": fail})
 
 
 # added to asssist with testing connectivity
