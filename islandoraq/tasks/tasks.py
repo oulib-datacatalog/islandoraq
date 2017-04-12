@@ -2,7 +2,7 @@ from celery.task import task
 from os import chown
 from os import chmod
 from os import environ, pathsep
-from subprocess import check_call, CalledProcessError
+from subprocess import check_call, check_output, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
 import logging
@@ -36,17 +36,21 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         chmod(tmpdir, 0o775)
         chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
         try:
-            check_call(['drush', '-u', '1', 'oubib',
-                        '--recipe_uri={0}'.format(recipe_url.strip()),
-                        '--parent_collection={0}'.format(collection),
-                        '--tmp_dir={0}'.format(tmpdir),
-                        '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
-                        ],
-                       shell=True
-                       )
+            #check_call([
+            drush_response = check_output([
+                'drush', '-u', '1', 'oubib',
+                '--recipe_uri={0}'.format(recipe_url.strip()),
+                '--parent_collection={0}'.format(collection),
+                '--tmp_dir={0}'.format(tmpdir),
+                '--root={0}'.format(ISLANDORA_DRUPAL_ROOT),
+                ],
+                    shell=True
+                )
+            logging.error(drush_response)
         except CalledProcessError as err:
             logging.error(err)
             logging.error(environ)
+            logging.error(drush_response)
             return({"ERROR": "Ingest command failed"})
         finally:
             #rmtree(tmpdir)
