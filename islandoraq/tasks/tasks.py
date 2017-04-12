@@ -1,7 +1,7 @@
 from celery.task import task
 from os import chown
 from os import chmod
-from os import environ
+from os import environ, pathsep
 from subprocess import check_call, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -11,6 +11,8 @@ import grp
 from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
 logging.basicConfig(level=logging.INFO)
+
+needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
 
 
 @task()
@@ -36,9 +38,9 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                         '--tmp_dir={0}'.format(tmpdir),
                         '--root={0}'.format(ISLANDORA_DRUPAL_ROOT)
                         ],
-                       shell=True
+                       shell=True,
+                       env={"PATH": pathsep.join(needed_paths) + pathsep + environ["PATH"]}
                        )
-            pass
         except CalledProcessError as err:
             logging.error(err)
             logging.error(environ)
