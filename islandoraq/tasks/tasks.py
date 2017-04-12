@@ -7,6 +7,7 @@ from shutil import rmtree
 from tempfile import mkdtemp
 import logging
 import grp
+import requests
 
 from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
@@ -29,6 +30,8 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     logging.error("ingest recipe args: {0}, {1}".format(recipe_urls, collection)) # debug
     logging.error("Environment: {0}".format(environ)) # debug
     logging.error("root path: {0}".format(ISLANDORA_DRUPAL_ROOT)) # debug
+    fail = 0
+    success = 0
     for recipe_url in recipe_urls.split(","):
         logging.error("ingesting: {0}".format(recipe_url.strip())) # debug
         tmpdir = mkdtemp(prefix="recipeloader_")
@@ -36,17 +39,17 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         chmod(tmpdir, 0o775)
         chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
         try:
-            #check_call([
-            drush_response = check_output([
-                'drush', '-u', '1', 'oubib',
-                '--recipe_uri={0}'.format(recipe_url.strip()),
-                '--parent_collection={0}'.format(collection),
-                '--tmp_dir={0}'.format(tmpdir),
-                '--root={0}'.format(ISLANDORA_DRUPAL_ROOT),
-                ],
-                    shell=True
-                )
-            logging.error(drush_response)
+            if requests.get(recipe_url).status_code == 200:
+                drush_response = check_output("drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}".format(
+                    recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT
+                    ),
+                        shell=True
+                    )
+                logging.error(drush_response) # debug
+                success += 1
+            else:
+                logging.error("Issue getting recipe at: {0}".format(recipe_url))
+                fail += 1
         except CalledProcessError as err:
             logging.error(err)
             logging.error(environ)
@@ -57,7 +60,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             logging.error("removed working dir") # debug
             pass
 
-        return("SUCCESS")  # TODO: return islandora url for ingested book
+        return({"Successful": success, "Failures": fail)
 
 
 # added to asssist with testing connectivity
