@@ -1,6 +1,7 @@
 from celery.task import task
 from os import chown
 from os import chmod
+from os import environ
 from subprocess import check_call, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -40,6 +41,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             pass
         except CalledProcessError as err:
             logging.error(err)
+            logging.error(environ)
             return({"ERROR": "Ingest command failed"})
         finally:
             rmtree(tmpdir)
