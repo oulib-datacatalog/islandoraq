@@ -28,7 +28,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     """
     logging.error("ingest recipe args: {0}, {1}".format(recipe_urls, collection)) # debug
     logging.error("Environment: {0}".format(environ)) # debug
-    logging.error("root path: {0}".format(ISLANDORA_DRUPAL_ROOT) # debug
+    logging.error("root path: {0}".format(ISLANDORA_DRUPAL_ROOT)) # debug
     for recipe_url in recipe_urls.split(","):
         logging.error("ingesting: {0}".format(recipe_url.strip())) # debug
         tmpdir = mkdtemp(prefix="recipeloader_")
