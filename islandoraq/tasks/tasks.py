@@ -46,7 +46,8 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             logging.error(environ)
             return({"ERROR": "Ingest command failed"})
         finally:
-            rmtree(tmpdir)
+            #rmtree(tmpdir)
+            pass
 
         return("SUCCESS")  # TODO: return islandora url for ingested book
 
