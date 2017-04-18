@@ -9,12 +9,14 @@ import logging
 import grp
 import requests
 
-from celeryconfig import ISLANDORA_DRUPAL_ROOT
+#from celeryconfig import ISLANDORA_DRUPAL_ROOT
 
 logging.basicConfig(level=logging.INFO)
 
-needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
-environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
+#needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
+#environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
+
+ISLANDORA_DRUPAL_ROOT = environ["ISLANDORA_DRUPAL_ROOT"]
 
 
 @task()
