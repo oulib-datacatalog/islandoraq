@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 #needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
 #environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
 
-ISLANDORA_DRUPAL_ROOT = environ["ISLANDORA_DRUPAL_ROOT"]
+ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
 
 
 @task()
@@ -33,8 +33,10 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     logging.debug("ingest recipe args: {0}, {1}".format(recipe_urls, collection))
     logging.debug("Environment: {0}".format(environ))
     logging.debug("root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
-    fail = 0
-    success = 0
+    if not ISLANDORA_DRUPAL_ROOT:
+        return {"Error": "Drupal root not set - contact your administrator"}
+    fail = [] 
+    success = []
     for recipe_url in recipe_urls.split(","):
         logging.debug("ingesting: {0}".format(recipe_url.strip()))
         tmpdir = mkdtemp(prefix="recipeloader_")
@@ -49,20 +51,19 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                         shell=True
                     )
                 logging.debug(drush_response)
-                success += 1
+                success.append(recipe_url)
             else:
                 logging.error("Issue getting recipe at: {0}".format(recipe_url))
-                fail += 1
+                fail.append(recipe_url)
         except CalledProcessError as err:
-            fail += 1
+            fail.append(recipe_url)
             logging.error(err)
             logging.error(environ)
-            logging.error(drush_response)
         finally:
             rmtree(tmpdir)
             logging.debug("removed working dir")
             
-    return({"Successful": success, "Failures": fail})
+    return ({"Successful": success, "Failures": fail})
 
 
 # added to asssist with testing connectivity
