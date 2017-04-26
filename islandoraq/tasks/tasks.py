@@ -44,7 +44,8 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         chmod(tmpdir, 0o775)
         chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
         try:
-            if requests.get(recipe_url).status_code == 200:
+            testresp = requests.head(recipe_url, allow_redirects=True)
+            if testresp.status_code == requests.codes.ok:
                 drush_response = check_output("drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}".format(
                     recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT
                     ),
@@ -54,9 +55,9 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 success.append(recipe_url)
             else:
                 logging.error("Issue getting recipe at: {0}".format(recipe_url))
-                fail.append(recipe_url)
+                fail.append([recipe_url, "Server Returned status {0}".format(testresp.status_code) )
         except CalledProcessError as err:
-            fail.append(recipe_url)
+            fail.append([recipe_url, err])
             logging.error(err)
             logging.error(environ)
         finally:
