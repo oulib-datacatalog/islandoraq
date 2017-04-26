@@ -12,8 +12,10 @@ import requests
 logging.basicConfig(level=logging.INFO)
 
 ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
-ingest_command = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
+ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
+needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
+environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -45,9 +47,8 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         try:
             testresp = requests.head(recipe_url, allow_redirects=True)
             if testresp.status_code == requests.codes.ok:
-                drush_response = check_output(ingest_command.format(
-                        recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT
-                    ),
+                drush_response = check_output(
+                    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
                     shell=True
                 )
                 logging.debug(drush_response)
