@@ -9,14 +9,10 @@ import logging
 import grp
 import requests
 
-#from celeryconfig import ISLANDORA_DRUPAL_ROOT
-
 logging.basicConfig(level=logging.INFO)
 
-#needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
-#environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
-
 ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
+ingest_command = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
 
 @task()
@@ -34,10 +30,13 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     logging.debug("Environment: {0}".format(environ))
     logging.debug("root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
     if not ISLANDORA_DRUPAL_ROOT:
-        return {"Error": "Drupal root not set - contact your administrator"}
+        raise Exception("Drupal path config not set. Contact your administrator")
+
+    recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
+    
     fail = [] 
     success = []
-    for recipe_url in recipe_urls.split(","):
+    for recipe_url in recipe_urls:
         logging.debug("ingesting: {0}".format(recipe_url.strip()))
         tmpdir = mkdtemp(prefix="recipeloader_")
         logging.debug("created working dir: {0}".format(tmpdir))
@@ -46,11 +45,11 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         try:
             testresp = requests.head(recipe_url, allow_redirects=True)
             if testresp.status_code == requests.codes.ok:
-                drush_response = check_output("drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}".format(
-                    recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT
+                drush_response = check_output(ingest_command.format(
+                        recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT
                     ),
-                        shell=True
-                    )
+                    shell=True
+                )
                 logging.debug(drush_response)
                 success.append(recipe_url)
             else:
@@ -65,6 +64,12 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             logging.debug("removed working dir")
             
     return ({"Successful": success, "Failures": fail})
+
+
+@task
+def clear_drush_cache():
+    check_call(["drush", "cache-clear", "drush"])
+    return True
 
 
 # added to asssist with testing connectivity
