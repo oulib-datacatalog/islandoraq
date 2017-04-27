@@ -50,16 +50,19 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 #    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
                 #    shell=True
                 #)
-                drush_response = check_output([
-                    "drush",
-                    "-u",
-                    "1",
-                    "oubib",
-                    "--recipe_uri={0}".format(recipe_url.strip()),
-                    "--parent_collection={0}".format(collection),
-                    "--tmp_dir={0}".format(tmpdir),
-                    "--root={0}".format(ISLANDORA_DRUPAL_ROOT)
-                    ])
+                #-----------------
+                #drush_response = check_output([
+                #    "drush",
+                #    "-u",
+                #    "1",
+                #    "oubib",
+                #    "--recipe_uri={0}".format(recipe_url.strip()),
+                #    "--parent_collection={0}".format(collection),
+                #    "--tmp_dir={0}".format(tmpdir),
+                #    "--root={0}".format(ISLANDORA_DRUPAL_ROOT)
+                #    ])
+                #-----------------
+                drush_response = check_output(["whoami"])
                 logging.debug(drush_response)
                 success.append(recipe_url)
             except CalledProcessError as err:
