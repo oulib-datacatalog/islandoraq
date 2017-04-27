@@ -48,7 +48,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 drush_response = None
                 drush_response = check_output(
                     ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
-                    shell=True
+                    #shell=True
                 )
                 logging.debug(drush_response)
                 success.append(recipe_url)
