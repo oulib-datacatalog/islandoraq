@@ -49,13 +49,14 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                     ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
                     shell=True
                 )
-                logging.error(drush_response)
+                logging.debug(drush_response)
                 success.append(recipe_url)
             else:
                 logging.error("Issue getting recipe at: {0}".format(recipe_url))
                 fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
         except CalledProcessError as err:
             fail.append([recipe_url, "Drush status {0}".format(err.returncode)])
+            logging.error(drush_response)
             logging.error(err)
             logging.error(environ)
         finally:
