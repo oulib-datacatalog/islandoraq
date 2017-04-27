@@ -11,12 +11,12 @@ import requests
 
 logging.basicConfig(level=logging.INFO)
 
-#ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
-ISLANDORA_DRUPAL_ROOT = "/srv/test/drupal" 
+ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
+#ISLANDORA_DRUPAL_ROOT = "/srv/test/drupal" 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
-needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
-environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
+#needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
+#environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -56,9 +56,9 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 success.append(recipe_url)
             else:
                 logging.error("Issue getting recipe at: {0}".format(recipe_url))
-                fail.append([recipe_url, "Server Returned status {0}".format(testresp.status_code)])
+                fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
         except CalledProcessError as err:
-            fail.append([recipe_url, err.returncode])
+            fail.append([recipe_url, "Drush status {0}".format(err.returncode)])
             logging.error(err)
             logging.error(environ)
         finally:
