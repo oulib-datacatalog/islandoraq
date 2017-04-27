@@ -11,8 +11,8 @@ import requests
 
 logging.basicConfig(level=logging.INFO)
 
-ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
-#ISLANDORA_DRUPAL_ROOT = "/srv/test/drupal" 
+#ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
+ISLANDORA_DRUPAL_ROOT = "/srv/test/drupal" 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
 #needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
