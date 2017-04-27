@@ -57,7 +57,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 logging.error("Issue getting recipe at: {0}".format(recipe_url))
                 fail.append([recipe_url, "Server Returned status {0}".format(testresp.status_code)])
         except CalledProcessError as err:
-            fail.append([recipe_url, err])
+            fail.append([recipe_url, err.returncode])
             logging.error(err)
             logging.error(environ)
         finally:
