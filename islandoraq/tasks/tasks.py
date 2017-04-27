@@ -45,6 +45,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             chmod(tmpdir, 0o775)
             chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
             try:
+                drush_response = None
                 drush_response = check_output(
                     ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
                     shell=True
