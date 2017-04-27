@@ -30,6 +30,8 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     logging.debug("Environment: {0}".format(environ))
     logging.debug("root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
     if not ISLANDORA_DRUPAL_ROOT:
+        logging.error("Missing ISLANDORA_DRUPAL_ROOT")
+        logging.error(environ)
         raise Exception("Drupal path config not set. Contact your administrator")
 
     recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
