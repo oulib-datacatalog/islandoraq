@@ -27,13 +27,14 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     """
     logging.debug("ingest recipe args: {0}, {1}".format(recipe_urls, collection))
     logging.debug("Environment: {0}".format(environ))
-    logging.debug("root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
     
     ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
     if not ISLANDORA_DRUPAL_ROOT:
         logging.error("Missing ISLANDORA_DRUPAL_ROOT")
         logging.error(environ)
         raise Exception("Drupal path config not set. Contact your administrator")
+
+    logging.debug("Drupal root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
 
     recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
     
