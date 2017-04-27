@@ -62,7 +62,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 #    "--root={0}".format(ISLANDORA_DRUPAL_ROOT)
                 #    ])
                 #-----------------
-                drush_response = check_output("whoami", shell=True)
+                drush_response = check_output("/usr/bin/whoami", shell=True)
                 logging.debug(drush_response)
                 success.append(recipe_url)
             except CalledProcessError as err:
