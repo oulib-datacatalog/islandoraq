@@ -12,7 +12,7 @@ import requests
 logging.basicConfig(level=logging.INFO)
 
 ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
-ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
+ingest_template = "/opt/php/bin/drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
 
 @task()
@@ -46,10 +46,10 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
             try:
                 drush_response = None
-                #drush_response = check_output(
-                #    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
-                #    shell=True
-                #)
+                drush_response = check_output(
+                    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                    shell=True
+                )
                 #-----------------
                 #drush_response = check_output([
                 #    "drush",
@@ -62,7 +62,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 #    "--root={0}".format(ISLANDORA_DRUPAL_ROOT)
                 #    ])
                 #-----------------
-                drush_response = check_output("/usr/bin/whoami", shell=True)
+                #drush_response = check_output("/usr/bin/whoami", shell=True)
                 logging.debug(drush_response)
                 success.append(recipe_url)
             except CalledProcessError as err:
