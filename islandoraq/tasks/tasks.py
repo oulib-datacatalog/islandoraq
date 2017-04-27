@@ -46,10 +46,10 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
             chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
             try:
                 drush_response = None
-                drush_response = check_output(
-                    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
-                    shell=True
-                )
+                #drush_response = check_output(
+                #    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                #    shell=True
+                #)
                 #-----------------
                 #drush_response = check_output([
                 #    "drush",
@@ -62,7 +62,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 #    "--root={0}".format(ISLANDORA_DRUPAL_ROOT)
                 #    ])
                 #-----------------
-                #drush_response = check_output("/usr/bin/whoami", shell=True)
+                drush_response = check_output("/opt/php/bin/drush", shell=True)
                 logging.debug(drush_response)
                 success.append(recipe_url)
             except CalledProcessError as err:
