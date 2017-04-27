@@ -11,12 +11,9 @@ import requests
 
 logging.basicConfig(level=logging.INFO)
 
-#ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
-ISLANDORA_DRUPAL_ROOT = "/srv/test/drupal" 
+ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
-#needed_paths = ["/opt/php/bin", "/opt/d7/bin"]
-#environ["PATH"] = pathsep.join(needed_paths) + pathsep + environ["PATH"]
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -52,7 +49,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                     ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
                     shell=True
                 )
-                logging.debug(drush_response)
+                logging.error(drush_response)
                 success.append(recipe_url)
             else:
                 logging.error("Issue getting recipe at: {0}".format(recipe_url))
