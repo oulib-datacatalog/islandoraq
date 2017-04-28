@@ -9,10 +9,13 @@ import logging
 import grp
 import requests
 
+from celeryconfig import ISLANDORA_DRUPAL_ROOT, PATH
+
 logging.basicConfig(level=logging.INFO)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
++environ["PATH"] = PATH + pathsep + environ["PATH"]
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
@@ -28,7 +31,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
     logging.debug("ingest recipe args: {0}, {1}".format(recipe_urls, collection))
     logging.debug("Environment: {0}".format(environ))
     
-    ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
+    #ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
     if not ISLANDORA_DRUPAL_ROOT:
         logging.error("Missing ISLANDORA_DRUPAL_ROOT")
         logging.error(environ)
