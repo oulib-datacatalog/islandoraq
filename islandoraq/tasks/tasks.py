@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
 
-+environ["PATH"] = PATH + pathsep + environ["PATH"]
+environ["PATH"] = PATH + pathsep + environ["PATH"]
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
