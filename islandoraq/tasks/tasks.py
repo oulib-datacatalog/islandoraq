@@ -13,20 +13,21 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT, PATH
 
 logging.basicConfig(level=logging.INFO)
 
-ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --tmp_dir={2} --root={3}"
+ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
 
 environ["PATH"] = PATH + pathsep + environ["PATH"]
 
 @task()
-def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
+def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namespace=None):
     """
     Ingest recipe json file into Islandora repository.
     
     This kickstarts the Islandora local process to import a book collection.
     
     args:
-      recipe_urls: Comma seperated string of URLs pointing to json formatted recipe files
-      collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection  
+      recipe_urls: List of URLs pointing to json formatted recipe files
+      collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection
+      pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
     logging.debug("ingest recipe args: {0}, {1}".format(recipe_urls, collection))
     logging.debug("Environment: {0}".format(environ))
@@ -36,6 +37,9 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
         logging.error("Missing ISLANDORA_DRUPAL_ROOT")
         logging.error(environ)
         raise Exception("Drupal path config not set. Contact your administrator")
+
+    if not pid_namespace:
+        pid_namespace = collection.split(":")[0]
 
     logging.debug("Drupal root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
 
@@ -55,7 +59,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection'):
                 drush_response = None
                 #-----------------
                 drush_response = check_output(
-                    ingest_template.format(recipe_url.strip(), collection, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                    ingest_template.format(recipe_url.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
                     shell=True
                 )
                 #-----------------
