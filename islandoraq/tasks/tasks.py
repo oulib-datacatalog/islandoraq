@@ -53,8 +53,8 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namesp
         if testresp.status_code == requests.codes.ok:
             tmpdir = mkdtemp(prefix="recipeloader_")
             logging.debug("created working dir: {0}".format(tmpdir))
-            chmod(tmpdir, 0o775)
-            chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
+            #chmod(tmpdir, 0o775)
+            #chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
             try:
                 drush_response = None
                 #-----------------
