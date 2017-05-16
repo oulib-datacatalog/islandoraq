@@ -29,7 +29,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namesp
       collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
-    logging.debug("ingest recipe args: {0}, {1}".format(recipe_urls, collection))
+    logging.debug("ingest recipe args: {0}, {1}, {1}".format(recipe_urls, collection, pid_namespace))
     logging.debug("Environment: {0}".format(environ))
     
     #ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
@@ -91,6 +91,31 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namesp
             fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
             
     return ({"Successful": success, "Failures": fail})
+
+
+@task
+def ingest_status(recipe_urls):
+    """
+    Polls the server to check that objects defined in the recipe_urls exist on the server.
+    
+    args:
+      recipe_urls: List of URLs pointing to json formatted recipe files
+    """
+    recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
+    uuid_url = "http://127.0.0.1/uuid/{0}"
+
+    for recipe_url in recipe_urls:
+        recipe_text = requests.get(recipe_url).text
+        recipe_data = loads(recipe_text)
+        book_uuid = recipe_data['recipe']['uuid']
+        page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
+
+        with requests.Session() as s:
+            if s.head(uuid_url.format(book_uuid)).status_code != 200:
+                return "Book not loaded"
+            status = {uuid: s.head(uuid_url.format(uuid)).status_code for uuid in page_uuids}
+            successful_load = all([value == 200 for value in status.values()])
+            return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
 
 
 @task
