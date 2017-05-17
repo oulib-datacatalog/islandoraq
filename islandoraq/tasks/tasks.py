@@ -109,14 +109,14 @@ def ingest_status(recipe_urls):
         try:
             recipe_text = requests.get(recipe_url).text
         except requests.RequestException:
-            return "Bad recipe url"
+            raise Exception("Bad recipe url")
         recipe_data = loads(recipe_text)
         book_uuid = recipe_data['recipe']['uuid']
         page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
 
         with requests.Session() as s:
             if s.head(uuid_url.format(book_uuid)).status_code != 200:
-                return "Book not loaded"
+                raise Exception("Book not loaded")
             status = {uuid: s.head(uuid_url.format(uuid)).status_code for uuid in page_uuids}
             successful_load = all([value == 200 for value in status.values()])
             return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
