@@ -5,6 +5,7 @@ from os import environ, pathsep
 from subprocess import check_call, check_output, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
+from json import loads
 import logging
 import grp
 import requests
@@ -29,7 +30,7 @@ def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namesp
       collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
-    logging.debug("ingest recipe args: {0}, {1}, {1}".format(recipe_urls, collection, pid_namespace))
+    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipe_urls, collection, pid_namespace))
     logging.debug("Environment: {0}".format(environ))
     
     #ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
