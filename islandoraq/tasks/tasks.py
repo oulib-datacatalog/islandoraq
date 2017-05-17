@@ -106,7 +106,10 @@ def ingest_status(recipe_urls):
     uuid_url = "http://127.0.0.1/uuid/{0}"
 
     for recipe_url in recipe_urls:
-        recipe_text = requests.get(recipe_url).text
+        try:
+            recipe_text = requests.get(recipe_url).text
+        except requests.RequestException:
+            return "Bad recipe url"
         recipe_data = loads(recipe_text)
         book_uuid = recipe_data['recipe']['uuid']
         page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
