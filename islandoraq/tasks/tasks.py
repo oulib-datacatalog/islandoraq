@@ -9,6 +9,7 @@ from json import loads
 import logging
 import grp
 import requests
+import pycurl
 
 from celeryconfig import ISLANDORA_DRUPAL_ROOT, PATH
 
@@ -17,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
 
 environ["PATH"] = PATH + pathsep + environ["PATH"]
+
 
 @task()
 def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namespace=None):
@@ -102,7 +104,16 @@ def ingest_status(recipe_url):
     args:
       recipe_url: URL string pointing to a json formatted recipe file
     """
-    uuid_url = "http://127.0.0.1/uuid/{0}"
+ 
+    islandora_fqdn = environ.get(
+        "ISLANDORA_FQDN",
+        "test.repository.ou.edu" if ".test." in environ.get("HOSTNAME", "").lower()
+        else "repository.ou.edu")
+    
+    uuid_url = "http://{0}/uuid/{1}"
+    resolve = "{0}:443:127.0.0.1".format(islandora_fqdn)
+    
+    # Get UUIDs from recipe file
     try:
         recipe_text = requests.get(recipe_url).text
     except requests.RequestException:
@@ -111,12 +122,28 @@ def ingest_status(recipe_url):
     book_uuid = recipe_data['recipe']['uuid']
     page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
 
-    with requests.Session() as s:
-        if s.head(uuid_url.format(book_uuid)).status_code != 200:
-            raise Exception("Book not loaded")
-        status = {uuid: s.head(uuid_url.format(uuid)).status_code for uuid in page_uuids}
-        successful_load = all([value == 200 for value in status.values()])
-        return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
+    # Setup curl connection to resolve islandora fqdn to 127.0.0.1
+    repo = pycurl.Curl()
+    repo.setopt(repo.RESOLVE, [resolve])
+    repo.setopt(repo.SSL_VERIFYPEER, 0)
+    repo.setopt(repo.WRITEFUNCTION, lambda x: None)
+
+    # Check that book is loaded
+    repo.setopt(repo.URL, uuid_url.format(islandora_fqdn, book_uuid))
+    repo.perform()
+    if repo.getinfo(repo.RESPONSE_CODE) != 200:
+        return "Book not loaded"
+
+    # Check individual pages exist
+    status = {}
+    for uuid in page_uuids:
+        page_url = uuid_url.format(islandora_fqdn, uuid)
+        repo.setopt(repo.URL, page_url)
+        repo.perform()
+        status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
+    
+    successful_load = all([value == 200 for value in status.values()])
+    return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
 
 
 @task
