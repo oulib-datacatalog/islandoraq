@@ -11,7 +11,7 @@ import grp
 import requests
 import pycurl
 
-from celeryconfig import ISLANDORA_DRUPAL_ROOT, PATH
+from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH
 
 logging.basicConfig(level=logging.INFO)
 
@@ -105,13 +105,13 @@ def ingest_status(recipe_url):
       recipe_url: URL string pointing to a json formatted recipe file
     """
  
-    islandora_fqdn = environ.get(
-        "ISLANDORA_FQDN",
-        "test.repository.ou.edu" if ".test." in environ.get("HOSTNAME", "").lower()
-        else "repository.ou.edu")
+    if not ISLANDORA_FQDN:
+       logging.error("Missing ISLANDORA_FQDN")
+       logging.error(environ)
+       raise Exception("Missing Islandora FQDN. Contact your administrator")
     
-    uuid_url = "http://{0}/uuid/{1}"
-    resolve = "{0}:443:127.0.0.1".format(islandora_fqdn)
+    uuid_url = "https://{0}/uuid/{1}"
+    resolve = "{0}:443:127.0.0.1".format(ISLANDORA_FQDN)
     
     # Get UUIDs from recipe file
     try:
@@ -122,22 +122,23 @@ def ingest_status(recipe_url):
     book_uuid = recipe_data['recipe']['uuid']
     page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
 
-    # Setup curl connection to resolve islandora fqdn to 127.0.0.1
+    # Setup curl connection to resolve ISLANDORA_FQDN to 127.0.0.1
     repo = pycurl.Curl()
     repo.setopt(repo.RESOLVE, [resolve])
     repo.setopt(repo.SSL_VERIFYPEER, 0)
     repo.setopt(repo.WRITEFUNCTION, lambda x: None)
 
     # Check that book is loaded
-    repo.setopt(repo.URL, uuid_url.format(islandora_fqdn, book_uuid))
+    repo.setopt(repo.URL, uuid_url.format(ISLANDORA_FQDN, book_uuid))
     repo.perform()
-    if repo.getinfo(repo.RESPONSE_CODE) != 200:
-        return "Book not loaded"
+    book_status = repo.getinfo(repo.RESPONSE_CODE)
+    if book_status != 200:
+        return "Book not loaded. Received status {0}".format(book_status)
 
     # Check individual pages exist
     status = {}
     for uuid in page_uuids:
-        page_url = uuid_url.format(islandora_fqdn, uuid)
+        page_url = uuid_url.format(ISLANDORA_FQDN, uuid)
         repo.setopt(repo.URL, page_url)
         repo.perform()
         status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
