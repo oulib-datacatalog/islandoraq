@@ -21,7 +21,7 @@ environ["PATH"] = PATH + pathsep + environ["PATH"]
 
 
 @task()
-def ingest_recipe(recipe_urls, collection='islandora:bookCollection', pid_namespace=None):
+def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
     """
     Ingest recipe json file into Islandora repository.
     
