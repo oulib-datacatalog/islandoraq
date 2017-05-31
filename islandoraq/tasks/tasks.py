@@ -29,7 +29,7 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
     
     args:
       recipe_urls: List of URLs pointing to json formatted recipe files
-      collection: Name of Islandora collection to ingest to. Default is: islandora:bookCollection
+      collection: Name of Islandora collection to ingest to. Default is: oku:hos 
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
     logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipe_urls, collection, pid_namespace))
