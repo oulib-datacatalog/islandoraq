@@ -133,7 +133,8 @@ def ingest_status(recipe_url):
     repo.perform()
     book_status = repo.getinfo(repo.RESPONSE_CODE)
     if book_status != 200:
-        return "Book not loaded. Received status {0}".format(book_status)
+        return {"book": book_uuid, "page_status": None, "successful_load": False, 
+                "error": "Book not loaded. Received status {0}".format(book_status)}
 
     # Check individual pages exist
     status = {}
