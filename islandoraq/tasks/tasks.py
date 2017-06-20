@@ -96,7 +96,7 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
     return ({"Successful": success, "Failures": fail})
 
 
-@task
+@task()
 def ingest_status(recipe_url):
     """
     Polls the server to check that objects defined in the recipe_url exist on the server.
@@ -148,7 +148,24 @@ def ingest_status(recipe_url):
     return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
 
 
-@task
+@task()
+def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
+    """
+    Ingest a recipe into Islandora and then verify if it was loaded succeccfully.
+    
+    args:
+      recipe_url: URL string pointing to a json formatted recipe file
+      collection: Name of Islandora collection to ingest to. Default is: oku:hos 
+      pid_namespace: Namespace to ingest recipe. Default is first half of collection name
+    """
+    ingest = ingest_recipe.s(recipe_url, collection, pid_namespace)
+    verify = ingest_status.si(recipe_url)  # immutable signature to prevent result of ingest being appended
+    chain = (ingest | verify)
+    result = chain()
+    return result.get()
+
+
+@task()
 def clear_drush_cache():
     check_call(["drush", "cache-clear", "drush"])
     return True

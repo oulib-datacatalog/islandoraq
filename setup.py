@@ -5,7 +5,7 @@ setup(name='islandoraq',
       version='0.2.6.68',
       packages= find_packages(),
       install_requires=[
-          'celery==3.1.22',
+          'celery==3.1.23',
           'pymongo==3.2.1',
           'requests==2.9.1',
           'pycurl==7.43.0',
