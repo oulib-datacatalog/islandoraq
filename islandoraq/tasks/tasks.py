@@ -162,7 +162,7 @@ def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     verify = ingest_status.si(recipe_url)  # immutable signature to prevent result of ingest being appended
     chain = (ingest | verify)
     result = chain()
-    return result.get()
+    return "Kicked off tasks to ingest and verify recipe"
 
 
 @task()
