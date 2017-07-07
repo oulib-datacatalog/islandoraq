@@ -172,7 +172,7 @@ def _item_manipulator(pid, namespace, operation):
     if operation not in operations:
         raise Exception("operation must be one of {0}".format(operations))
     drush_response = None
-    logging.info("operation: {0}, namespace: {1}, pid: {2}".format(operation, namespace, pid)
+    logging.info("operation: {0}, namespace: {1}, pid: {2}".format(operation, namespace, pid))
     try:
         drush_response = check_output(
             crud_template.format(namespace, pid, operation),
@@ -188,7 +188,7 @@ def _item_manipulator(pid, namespace, operation):
 
 
 @task()
-def read_item(pid, namespace)
+def read_item(pid, namespace):
     """
     Read details of an object in Islandora
     
@@ -200,7 +200,7 @@ def read_item(pid, namespace)
 
 
 @task()
-def delete_item(pid, namespace)
+def delete_item(pid, namespace):
     """
     Delete an object from Islandora
     
