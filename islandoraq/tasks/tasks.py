@@ -16,6 +16,7 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH
 logging.basicConfig(level=logging.INFO)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
+crud_template = "drush -u 1 iim --pid={0}:{1} --operation={2}"
 
 environ["PATH"] = PATH + pathsep + environ["PATH"]
 
@@ -162,7 +163,53 @@ def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     verify = ingest_status.si(recipe_url)  # immutable signature to prevent result of ingest being appended
     chain = (ingest | verify)
     result = chain()
-    return "Kicked off tasks to ingest and verify recipe"
+    return "Kicked off tasks to ingest recipe and verify ingest"
+
+
+def _item_manipulator(pid, namespace, operation):
+    """ Internal function to call the islandora_item_manipulator (iim) drush script """
+    operations = ['read', 'delete']
+    if operation not in operations:
+        raise Exception("operation must be one of {0}".format(operations))
+    drush_response = None
+    logging.info("operation: {0}, namespace: {1}, pid: {2}".format(operation, namespace, pid)
+    try:
+        drush_response = check_output(
+            crud_template.format(namespace, pid, operation),
+            shell=True
+        )
+        logging.debug(drush_response)
+    except CalledProcessError as err:
+        logging.error(drush_response)
+        logging.error(err)
+        logging.error(environ)
+        return {"Error": "Could not perform operation"}
+    return drush_response
+
+
+@task()
+def read_item(pid, namespace)
+    """
+    Read details of an object in Islandora
+    
+    args:
+      pid - The unique identifier of the object (PID / UUID)
+      namespace - The collection namespace the object exists in
+    """
+    return _item_manipulator(pid, namespace, 'read')
+
+
+@task()
+def delete_item(pid, namespace)
+    """
+    Delete an object from Islandora
+    
+    args:
+      pid - The unique identifier of the object (PID / UUID)
+      namespace - The collection namespace the object exists in
+    """
+    _item_manipulator(pid, namespace, 'delete')
+    return True
 
 
 @task()
