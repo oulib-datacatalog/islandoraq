@@ -184,7 +184,10 @@ def _item_manipulator(pid, namespace, operation):
         logging.error(err)
         logging.error(environ)
         #return {"Error": "Could not perform operation"}
-        return {"Error": [drush_response, err.returncode, environ]}
+        logpath = environ.get('CELERY_LOG_FILE')
+        with open(logpath, 'r') as f:
+            loglast5 = f.readlines()[-5:]
+        return {"Error": [drush_response, err.returncode, environ, loglast5]}
     return drush_response
 
 
