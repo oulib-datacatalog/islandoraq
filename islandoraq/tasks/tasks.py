@@ -16,7 +16,7 @@ from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH
 logging.basicConfig(level=logging.INFO)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
-crud_template = "drush -u 1 iim --pid={0}:{1} --operation={2}"
+crud_template = "drush -u 1 iim --pid={0}:{1} --operation={2} --root={3}"
 
 environ["PATH"] = PATH + pathsep + environ["PATH"]
 
@@ -175,7 +175,7 @@ def _item_manipulator(pid, namespace, operation):
     logging.info("operation: {0}, namespace: {1}, pid: {2}".format(operation, namespace, pid))
     try:
         drush_response = check_output(
-            crud_template.format(namespace, pid, operation),
+            crud_template.format(namespace, pid, operation, ISLANDORA_DRUPAL_ROOT),
             shell=True
         )
         logging.debug(drush_response)
