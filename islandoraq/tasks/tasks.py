@@ -184,7 +184,7 @@ def _item_manipulator(pid, namespace, operation):
         logging.error(err)
         logging.error(environ)
         #return {"Error": "Could not perform operation"}
-        return {"Error": [drush_response, err, environ]}
+        return {"Error": [drush_response, err.returncode, environ]}
     return drush_response
 
 
