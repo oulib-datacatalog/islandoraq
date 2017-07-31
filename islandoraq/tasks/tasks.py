@@ -169,8 +169,11 @@ def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
       collection: Name of Islandora collection to ingest to. Default is: oku:hos 
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
+    if not pid_namespace:
+        pid_namespace = collection.split(":")[0]
+
     ingest = ingest_recipe.s(recipe_url, collection, pid_namespace)
-    verify = ingest_status.si(recipe_url)  # immutable signature to prevent result of ingest being appended
+    verify = ingest_status.si(recipe_url, namespace=pid_namespace)  # immutable signature to prevent result of ingest being appended
     chain = (ingest | verify)
     result = chain()
     return "Kicked off tasks to ingest recipe and verify ingest"
