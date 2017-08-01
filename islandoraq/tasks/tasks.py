@@ -61,25 +61,10 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
             chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
             try:
                 drush_response = None
-                #-----------------
                 drush_response = check_output(
                     ingest_template.format(recipe_url.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
                     shell=True
                 )
-                #-----------------
-                #drush_response = check_output([
-                #    "drush",
-                #    "-u",
-                #    "1",
-                #    "oubib",
-                #    "--recipe_uri={0}".format(recipe_url.strip()),
-                #    "--parent_collection={0}".format(collection),
-                #    "--tmp_dir={0}".format(tmpdir),
-                #    "--root={0}".format(ISLANDORA_DRUPAL_ROOT)
-                #    ])
-                #-----------------
-                #drush_response = check_output("/opt/php/bin/drush", shell=True)
-                #-----------------
                 logging.debug(drush_response)
                 success.append(recipe_url)
             except CalledProcessError as err:
@@ -97,16 +82,28 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
     return ({"Successful": success, "Failures": fail})
 
 
+def object_exists(uuid, namespace):
+    """
+    Uses local drush script to check that object exists
+    args:
+      uuid: uuid/pid of object
+      namespace: indicate which namespace to use
+    """
+    return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) is not ""
+
+
 @task()
-def ingest_status(recipe_url):
+def ingest_status(recipe_url, use_web=False, namespace=None):
     """
     Polls the server to check that objects defined in the recipe_url exist on the server.
     
     args:
       recipe_url: URL string pointing to a json formatted recipe file
+      use_web: Boolean setting to check over web - default is False
+      namespace: String indicating which collection to use - only used if use_web is False
     """
  
-    if not ISLANDORA_FQDN:
+    if use_web and not ISLANDORA_FQDN:
        logging.error("Missing ISLANDORA_FQDN")
        logging.error(environ)
        raise Exception("Missing Islandora FQDN. Contact your administrator")
@@ -123,29 +120,42 @@ def ingest_status(recipe_url):
     book_uuid = recipe_data['recipe']['uuid']
     page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
 
-    # Setup curl connection to resolve ISLANDORA_FQDN to 127.0.0.1
-    repo = pycurl.Curl()
-    repo.setopt(repo.RESOLVE, [resolve])
-    repo.setopt(repo.SSL_VERIFYPEER, 0)
-    repo.setopt(repo.WRITEFUNCTION, lambda x: None)
+    if use_web:
+        # Setup curl connection to resolve ISLANDORA_FQDN to 127.0.0.1
+        repo = pycurl.Curl()
+        repo.setopt(repo.RESOLVE, [resolve])
+        repo.setopt(repo.SSL_VERIFYPEER, 0)
+        repo.setopt(repo.WRITEFUNCTION, lambda x: None)
 
-    # Check that book is loaded
-    repo.setopt(repo.URL, uuid_url.format(ISLANDORA_FQDN, book_uuid))
-    repo.perform()
-    book_status = repo.getinfo(repo.RESPONSE_CODE)
-    if book_status != 200:
-        return {"book": book_uuid, "page_status": None, "successful_load": False, 
-                "error": "Book not loaded. Received status {0}".format(book_status)}
-
-    # Check individual pages exist
-    status = {}
-    for uuid in page_uuids:
-        page_url = uuid_url.format(ISLANDORA_FQDN, uuid)
-        repo.setopt(repo.URL, page_url)
+        # Check that book is loaded
+        repo.setopt(repo.URL, uuid_url.format(ISLANDORA_FQDN, book_uuid))
         repo.perform()
-        status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
+        book_status = repo.getinfo(repo.RESPONSE_CODE)
+        if book_status != 200:
+            return {"book": book_uuid, "page_status": None, "successful_load": False, 
+                    "error": "Book not loaded. Received status {0}".format(book_status)}
     
-    successful_load = all([value == 200 for value in status.values()])
+        # Check individual pages exist
+        status = {}
+        for uuid in page_uuids:
+            page_url = uuid_url.format(ISLANDORA_FQDN, uuid)
+            repo.setopt(repo.URL, page_url)
+            repo.perform()
+            status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
+        
+        successful_load = all([value == 200 for value in status.values()])
+    
+    else:
+        if not object_exists(book_uuid, namespace):
+            return {"book": book_uuid, "page_status": None, "successful_load": False, 
+                    "error": "Book not loaded. Book's UUID not found: {0}".format(book_uuid)}
+
+        status = {}
+        for uuid in page_uuids:
+            status[uuid] = object_exists(uuid, namespace)
+
+        successful_load = all([value for value in status.values()])
+    
     return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
 
 
@@ -159,8 +169,11 @@ def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
       collection: Name of Islandora collection to ingest to. Default is: oku:hos 
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
+    if not pid_namespace:
+        pid_namespace = collection.split(":")[0]
+
     ingest = ingest_recipe.s(recipe_url, collection, pid_namespace)
-    verify = ingest_status.si(recipe_url)  # immutable signature to prevent result of ingest being appended
+    verify = ingest_status.si(recipe_url, namespace=pid_namespace)  # immutable signature to prevent result of ingest being appended
     chain = (ingest | verify)
     result = chain()
     return "Kicked off tasks to ingest recipe and verify ingest"
