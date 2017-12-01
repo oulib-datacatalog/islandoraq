@@ -50,12 +50,10 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
     Example derivative record structure:
     {"application": 
       {"islandora":
-        {
-          {"derivative": "jpeg_040_antialias",
-           "collection": "oku:hos",
-           "ingested": True,
-           "datetime": <timestamp of derivative>,
-          }
+        {"derivative": "jpeg_040_antialias",
+         "collection": "oku:hos",
+         "ingested": True,
+         "datetime": <timestamp of derivative>,
         }
       }
     }
