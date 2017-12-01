@@ -5,20 +5,81 @@ from os import environ, pathsep
 from subprocess import check_call, check_output, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
-from json import loads
+from json import loads, dumps
+import datetime
 import logging
 import grp
 import requests
 import pycurl
 
-from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH
+from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
 crud_template = "drush -u 1 iim --pid={0}:{1} --operation={2} --root={3}"
 
+base_url = "https://cc.lib.ou.edu"
+api_url = "{0}/api".format(base_url)
+catalog_url = "{0}/catalog/data/catalog/digital_objects/.json".format(api_url)
+search_url = "{0}?query={{\"filter\": {{\"bag\": \"{1}\"}}}}"
+
 environ["PATH"] = PATH + pathsep + environ["PATH"]
+
+
+def searchcatalog(bag):
+    resp = requests.get(search_url.format(catalog_url, bag))
+    catalogitems = loads(resp.text)
+    if catalogitems['count']:
+        return catalogitems['results'][0]
+
+
+@task(bind=True)
+def updatecatalog(self, bag, paramstring, collection, ingested=True):
+    """
+    Update Bag in Data Catalog with repository ingest status
+
+    args:
+      bag (string); Name of bag to update data catalog entry
+      paramstring (string);  Parameter settings of derivative (e.x. "jpeg_040_antialias")
+      collection (string); collection name with namespace (e.x. oku:hos)
+      ingested (boolean); Indicates the bags ingest status - default is true
+    """
+
+    """
+    Example derivative record structure:
+    {"application": 
+      {"islandora":
+        {
+          {"derivative": "jpeg_040_antialias",
+           "collection": "oku:hos",
+           "ingested": True,
+           "datetime": <timestamp of derivative>,
+          }
+        }
+      }
+    }
+    """
+    catalogitem = searchcatalog(bag)
+    if catalogitem == None:
+        return False  # this bag does not have a catalog entry
+   
+    if "application" not in catalogitem:
+        catalogitem["application"] = {}
+    if "islandora" not in catalogitem["application"]:
+        catalogitem["application"]["islandora"] = {}
+    catalogitem["application"]["islandora"]["derivative"] = paramstring
+    catalogitem["application"]["islandora"]["collection"] = collection
+    catalogitem["application"]["islandora"]["ingested"] = ingested
+    catalogitem["application"]["islandora"]["datetime"] = datetime.datetime.utcnow().isoformat()
+    
+    headers = {"Content-Type": "application/json", "Authorization": "Token {0}".format(CYBERCOMMONS_TOKEN)}
+    try:
+        req = requests.post(catalog_url, data=dumps(catalogitem), headers=headers)
+        req.raise_for_status()
+    except Exception as e:  # TODO: use specific exceptions to catch
+        self.retry(countdown=60, max_retries=4)
+    return True
 
 
 @task()
@@ -159,6 +220,7 @@ def ingest_status(recipe_url, use_web=False, namespace=None):
     return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
 
 
+
 @task()
 def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     """
@@ -172,9 +234,14 @@ def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     if not pid_namespace:
         pid_namespace = collection.split(":")[0]
 
+    # recipe_url example: https://bag.ou.edu/derivative/[bag name]/[paramstring]/[lowercase version of bag name].json
+    bag = recipe_url.split("/")[4]
+    paramstring = recipe_url.split("/")[5]
+
     ingest = ingest_recipe.s(recipe_url, collection, pid_namespace)
     verify = ingest_status.si(recipe_url, namespace=pid_namespace)  # immutable signature to prevent result of ingest being appended
-    chain = (ingest | verify)
+    update_catalog = updatecatalog.si(bag, paramstring, collection, ingested=True)  # immutable signature
+    chain = (ingest | verify | update_catalog)
     result = chain()
     return "Kicked off tasks to ingest recipe and verify ingest"
 
