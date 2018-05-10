@@ -6,6 +6,7 @@ from subprocess import check_call, check_output, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
 from json import loads, dumps
+from uuid import uuid5, NAMESPACE_DNS
 import datetime
 import logging
 import grp
@@ -35,14 +36,15 @@ def searchcatalog(bag):
 
 
 @task(bind=True)
-def updatecatalog(self, bag, paramstring, collection, ingested=True):
-    """
+def updatecatalog(self, bag, paramstring, collection, url=None, ingested=True):
+    """rom uuid import uuid5, NAMESPACE_DNS
     Update Bag in Data Catalog with repository ingest status
 
     args:
       bag (string); Name of bag to update data catalog entry
       paramstring (string);  Parameter settings of derivative (e.x. "jpeg_040_antialias")
       collection (string); collection name with namespace (e.x. oku:hos)
+      url (string); url to collection item
       ingested (boolean); Indicates the bags ingest status - default is true
     """
 
@@ -69,6 +71,7 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
     catalogitem["application"]["islandora"]["derivative"] = paramstring
     catalogitem["application"]["islandora"]["collection"] = collection
     catalogitem["application"]["islandora"]["ingested"] = ingested
+    catalogitem["application"]["islandora"]["url"] = url
     catalogitem["application"]["islandora"]["datetime"] = datetime.datetime.utcnow().isoformat()
     
     headers = {"Content-Type": "application/json", "Authorization": "Token {0}".format(CYBERCOMMONS_TOKEN)}
@@ -81,21 +84,20 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
 
 
 @task()
-def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
+def ingest_recipe(recipe_url, collection='oku:hos', pid_namespace=None):
     """
     Ingest recipe json file into Islandora repository.
     
     This kickstarts the Islandora local process to import a book collection.
     
     args:
-      recipe_urls: List of URLs pointing to json formatted recipe files
+      recipe_url: URL pointing to json formatted recipe file
       collection: Name of Islandora collection to ingest to. Default is: oku:hos 
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
-    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipe_urls, collection, pid_namespace))
+    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipe_url, collection, pid_namespace))
     logging.debug("Environment: {0}".format(environ))
     
-    #ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
     if not ISLANDORA_DRUPAL_ROOT:
         logging.error("Missing ISLANDORA_DRUPAL_ROOT")
         logging.error(environ)
@@ -105,46 +107,35 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
         pid_namespace = collection.split(":")[0]
 
     logging.debug("Drupal root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
-
-    recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
-    
-    fail = [] 
-    success = []
-    for recipe_url in recipe_urls:
-        logging.debug("ingesting: {0}".format(recipe_url.strip()))
-        testresp = requests.head(recipe_url, allow_redirects=True)
-        if testresp.status_code == requests.codes.ok:
-            tmpdir = mkdtemp(prefix="recipeloader_")
-            logging.debug("created working dir: {0}".format(tmpdir))
-            chmod(tmpdir, 0o775)
-            chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
-            try:
-                drush_response = None
-                drush_response = check_output(
-                    ingest_template.format(recipe_url.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
-                    shell=True
-                )
-                logging.debug(drush_response)
-                success.append(recipe_url)
-            except CalledProcessError as err:
-                fail.append([recipe_url, "Drush status {0}".format(err.returncode)])
-                logging.error(drush_response)
-                logging.error(err)
-                logging.error(environ)
-            finally:
-                rmtree(tmpdir)
-                logging.debug("removed working dir")
-        else:
-            logging.error("Issue getting recipe at: {0}".format(recipe_url))
-            fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
-            
-    return ({"Successful": success, "Failures": fail})
+    logging.debug("ingesting: {0}".format(recipe_url.strip()))
+    testresp = requests.head(recipe_url, allow_redirects=True)
+    if testresp.status_code == requests.codes.ok:
+        tmpdir = mkdtemp(prefix="recipeloader_")
+        logging.debug("created working dir: {0}".format(tmpdir))
+        chmod(tmpdir, 0o775)
+        chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
+        try:
+            drush_response = check_output(
+                ingest_template.format(recipe_url.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                shell=True
+            )
+            logging.debug(drush_response)
+        except CalledProcessError as err:
+            logging.error(drush_response)
+            logging.error(err)
+            logging.error(environ)
+        finally:
+            rmtree(tmpdir)
+            logging.debug("removed working dir")
+    else:
+        logging.error("Issue getting recipe: {0}, {1}".format(testresp.status_code, recipe_url))
+    return True
 
 
 def object_exists(uuid, namespace):
     """
     Uses local drush script to check that object exists
-    args:
+    args:rom uuid import uuid5, NAMESPACE_DNS
       uuid: uuid/pid of object
       namespace: indicate which namespace to use
     """
@@ -235,10 +226,12 @@ def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     # recipe_url example: https://bag.ou.edu/derivative/[bag name]/[paramstring]/[lowercase version of bag name].json
     bag = recipe_url.split("/")[4]
     paramstring = recipe_url.split("/")[5]
+    repoUUID = uuid5(NAMESPACE_DNS, 'repository.ou.edu')
+    repository_item_url = "https://repository.ou.edu/uuid/{0}".format(str(uuid5(repoUUID, bag)))
 
     ingest = ingest_recipe.s(recipe_url, collection, pid_namespace)
     verify = ingest_status.si(recipe_url, namespace=pid_namespace)  # immutable signature to prevent result of ingest being appended
-    update_catalog = updatecatalog.si(bag, paramstring, collection, ingested=True)  # immutable signature
+    update_catalog = updatecatalog.si(bag, paramstring, collection, url=repository_item_url, ingested=True)  # immutable signature
     chain = (ingest | verify | update_catalog)
     result = chain()
     return "Kicked off tasks to ingest recipe and verify ingest"
