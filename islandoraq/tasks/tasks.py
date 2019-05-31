@@ -141,14 +141,23 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
     return ({"Successful": success, "Failures": fail})
 
 
-def object_exists(uuid, namespace):
+@task()
+def object_exists(uuid, namespace, method="solr"):
     """
     Uses local drush script to check that object exists
     args:
       uuid: uuid/pid of object
       namespace: indicate which namespace to use
+      method: indicate which system to use to check existance: solr (default) or drush
     """
-    return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) is not ""
+    if method = "drush":
+        return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) is not ""
+    elif method = "solr":
+        resp = requests.get('http://localhost:8080/solr/select?q=PID:"{0}:{1}"&fl=numFound&wt=json'.format(namespace, uuid))
+        data = loads(resp.text)
+        if data['response']['numFound'] >= 1:
+            return True
+        return False
 
 
 @task()
