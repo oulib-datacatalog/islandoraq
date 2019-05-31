@@ -150,9 +150,9 @@ def object_exists(uuid, namespace, method="solr"):
       namespace: indicate which namespace to use
       method: indicate which system to use to check existance: solr (default) or drush
     """
-    if method = "drush":
+    if method == "drush":
         return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) is not ""
-    elif method = "solr":
+    elif method == "solr":
         resp = requests.get('http://localhost:8080/solr/select?q=PID:"{0}:{1}"&fl=numFound&wt=json'.format(namespace, uuid))
         data = loads(resp.text)
         if data['response']['numFound'] >= 1:
