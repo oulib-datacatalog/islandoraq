@@ -10,6 +10,7 @@ import datetime
 import logging
 import grp
 import requests
+from requests.exceptions import ConnectionError
 import pycurl
 
 from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
@@ -139,6 +140,19 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
             fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
             
     return ({"Successful": success, "Failures": fail})
+
+
+@task()
+def verify_solr_up():
+    """
+    Check that the solr application is running returning True or False
+    """
+    try:
+        return requests.get("http://localhost:8080/solr").ok
+    except ConnectionError as err:
+        logging.error("Error verifying solr is running")
+        logging.error(err)
+        return False
 
 
 @task()
