@@ -44,7 +44,7 @@ def test_searchcatalog_found(mock_get):
         "previous": null,
         "results": [
         {
-            "_id": "58b4e",
+            "_id": "testid",
             "application": {
                 "islandora": {
                     "datetime": "",
@@ -93,6 +93,7 @@ def test_searchcatalog_found(mock_get):
     mock_get.return_value.text = found
     response = searchcatalog("Tyler_2019")
     assert_equal(response['bag'], "Tyler_2019")
+    assert_equal(response['project'], 'fake_bag')
 
 
 @patch('islandoraq.tasks.tasks.requests.post')
@@ -122,6 +123,12 @@ def test_updatecatalog_fail_server_500(mock_search, mock_post):
     mock_post.raise_for_status = Mock(side_effect=HTTPError("500 Server Error"))
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
     assert_false(response)
+
+
+@nottest  # TODO: complete test
+@patch('islandoraq.tasks.tasks.requests.head')
+def test_ingest_recipe(mock_head):
+    mock_head.return_value.status_code = 200
 
 
 @patch('islandoraq.tasks.tasks.requests.get')
