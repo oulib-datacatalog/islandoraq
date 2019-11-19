@@ -12,7 +12,10 @@ import grp
 import requests
 from requests.exceptions import ConnectionError
 
-from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
+try:
+    from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
+except ImportError:
+    ISLANDORA_DRUPAL_ROOT = ISLANDORA_FQDN = PATH = CYBERCOMMONS_TOKEN = ""
 
 logging.basicConfig(level=logging.INFO)
 
