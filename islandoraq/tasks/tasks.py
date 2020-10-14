@@ -2,6 +2,7 @@ from celery.task import task
 from os import chown
 from os import chmod
 from os import environ, pathsep
+from os.path import join
 from subprocess import check_call, check_output, CalledProcessError
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -11,6 +12,11 @@ import logging
 import grp
 import requests
 from requests.exceptions import ConnectionError
+
+try:
+    from urlparse import urlparse
+except:
+    from urllib.parse import urlparse
 
 try:
     from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
@@ -28,6 +34,19 @@ catalog_url = "{0}/catalog/data/catalog/digital_objects/.json".format(api_url)
 search_url = "{0}?query={{\"filter\": {{\"bag\": \"{1}\"}}}}"
 
 environ["PATH"] = PATH + pathsep + environ["PATH"]
+
+
+def is_uri(item):
+    """ check if item looks like a uri returning True or False """
+    return urlparse(item).netloc != ''
+
+
+def is_recipe(item):
+    """ check if item looks like a valid recipe file returning True or False """
+    try:
+        return loads(item).get("recipe") is not None
+    except:
+        return False
 
 
 def searchcatalog(bag):
@@ -84,18 +103,18 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
 
 
 @task()
-def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
+def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
     """
-    Ingest recipe json file into Islandora repository.
+    Ingest recipe json into Islandora repository.
     
     This kickstarts the Islandora local process to import a book collection.
     
     args:
-      recipe_urls: List of URLs pointing to json formatted recipe files
+      recipes: List of URLs pointing to JSON recipe objects or list of JSON recipe objects
       collection: Name of Islandora collection to ingest to. Default is: oku:hos 
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
-    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipe_urls, collection, pid_namespace))
+    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipes, collection, pid_namespace))
     logging.debug("Environment: {0}".format(environ))
     
     #ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
@@ -109,38 +128,53 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
 
     logging.debug("Drupal root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
 
-    recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
+    recipes = [recipes] if not isinstance(recipes, list) else recipes
     
     fail = [] 
     success = []
-    for recipe_url in recipe_urls:
-        logging.debug("ingesting: {0}".format(recipe_url.strip()))
-        testresp = requests.head(recipe_url, allow_redirects=True)
-        if testresp.status_code == requests.codes.ok:
-            tmpdir = mkdtemp(prefix="recipeloader_")
-            logging.debug("created working dir: {0}".format(tmpdir))
-            chmod(tmpdir, 0o775)
-            chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
-            try:
-                drush_response = None
-                drush_response = check_output(
-                    ingest_template.format(recipe_url.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
-                    shell=True
-                )
-                logging.debug(drush_response)
-                success.append(recipe_url)
-            except CalledProcessError as err:
-                fail.append([recipe_url, "Drush status {0}".format(err.returncode)])
-                logging.error(drush_response)
-                logging.error(err)
-                logging.error(environ)
-            finally:
-                rmtree(tmpdir)
-                logging.debug("removed working dir")
-        else:
-            logging.error("Issue getting recipe at: {0}".format(recipe_url))
-            fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
-            
+    for recipe in recipes:
+        logging.debug("ingesting: {0}".format(recipe.strip()))
+        if is_uri(recipe):
+            recipe_uri = recipe
+            testresp = requests.get(recipe_uri, allow_redirects=True)
+            if testresp.status_code != requests.codes.ok:
+                logging.error("Issue getting recipe at: {0}".format(recipe_uri))
+                fail.append([recipe_uri, "Server status {0}".format(testresp.status_code)])
+                continue
+            if not is_recipe(testresp.content):
+                logging.error("Invalid recipe at: {0}".format(recipe_uri))
+                fail.append([recipe_uri, "Invalid recipe: {0}".format(recipe_uri)])
+                continue
+        tmpdir = mkdtemp(prefix="recipeloader_")
+        logging.debug("created working dir: {0}".format(tmpdir))
+        chmod(tmpdir, 0o775)
+        chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
+        try:
+            if not is_uri(recipe):
+                if not is_recipe(recipe):
+                    raise Exception("Not a valid recipe object")
+                recipe_uri = join(tmpdir, "cc_recipe.json")
+                with open(recipe_uri, "w") as f:
+                    f.write(recipe)
+            drush_response = None
+            drush_response = check_output(
+                ingest_template.format(recipe_uri.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                shell=True
+            )
+            logging.debug(drush_response)
+            success.append(recipe)
+        except CalledProcessError as err:
+            fail.append([recipe, "Drush status {0}".format(err.returncode)])
+            logging.error(drush_response)
+            logging.error(err)
+            logging.error(environ)
+        except Exception as err:
+            fail.append([recipe, err])
+            logging.error(err)
+            logging.error(recipe)
+        finally:
+            rmtree(tmpdir)
+            logging.debug("removed working dir")
     return ({"Successful": success, "Failures": fail})
 
 
