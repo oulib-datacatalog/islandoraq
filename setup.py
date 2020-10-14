@@ -8,7 +8,6 @@ setup(name='islandoraq',
           'celery==3.1.22',
           'pymongo==3.2.1',
           'requests==2.24.0',
-          'pycurl==7.43.0',
       ],
       include_package_data=True,
 )
