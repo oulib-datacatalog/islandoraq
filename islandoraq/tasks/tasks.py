@@ -48,7 +48,7 @@ def is_recipe(item):
     """ check if item looks like a valid recipe file returning True or False """
     if type(item) == dict and item.get("recipe"):
         return True
-    elif type(item) == str:
+    elif type(item) in [str, bytes]:
         try:
             return loads(item).get("recipe") is not None
         except:
