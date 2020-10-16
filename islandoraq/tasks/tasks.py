@@ -38,14 +38,22 @@ environ["PATH"] = PATH + pathsep + environ["PATH"]
 
 def is_uri(item):
     """ check if item looks like a uri returning True or False """
-    return urlparse(item).netloc != ''
+    if type(item) != str:
+        return False
+    else:
+        return urlparse(item).netloc != ''
 
 
 def is_recipe(item):
     """ check if item looks like a valid recipe file returning True or False """
-    try:
-        return loads(item).get("recipe") is not None
-    except:
+    if type(item) == dict and item.get("recipe"):
+        return True
+    elif type(item) == str:
+        try:
+            return loads(item).get("recipe") is not None
+        except:
+            return False
+    else:
         return False
 
 
@@ -133,7 +141,7 @@ def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
     fail = [] 
     success = []
     for recipe in recipes:
-        logging.debug("ingesting: {0}".format(recipe.strip()))
+        logging.debug("ingesting: {0}".format(recipe))
         if is_uri(recipe):
             recipe_uri = recipe
             testresp = requests.get(recipe_uri, allow_redirects=True)
@@ -155,7 +163,7 @@ def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
                     raise Exception("Not a valid recipe object")
                 recipe_uri = join(tmpdir, "cc_recipe.json")
                 with open(recipe_uri, "w") as f:
-                    f.write(recipe)
+                    f.write(dumps(recipe))
             drush_response = None
             drush_response = check_output(
                 ingest_template.format(recipe_uri.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
