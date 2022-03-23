@@ -1,4 +1,4 @@
-from celery.task import task
+from celery import Celery
 from os import chown
 from os import chmod
 from os import environ, pathsep
@@ -13,17 +13,27 @@ import grp
 import requests
 from requests.exceptions import ConnectionError
 
+logging.basicConfig(level=logging.INFO)
+
 try:
     from urlparse import urlparse
 except:
     from urllib.parse import urlparse
 
 try:
+    import celeryconfig
+except ImportError:
+    logging.error('Failed to import celeryconfig - exiting!')
+    exit()
+
+try:
     from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
 except ImportError:
-    ISLANDORA_DRUPAL_ROOT = ISLANDORA_FQDN = PATH = CYBERCOMMONS_TOKEN = ""
+    logging.error("Failed to import environment variables from celeryconfig!")
+    exit()
 
-logging.basicConfig(level=logging.INFO)
+app = Celery()
+app.config_from_object(celeryconfig)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
 crud_template = "drush -u 1 iim --pid={0}:{1} --operation={2} --root={3}"
@@ -64,7 +74,7 @@ def searchcatalog(bag):
         return catalogitems['results'][0]
 
 
-@task(bind=True)
+@app.task(bind=True)
 def updatecatalog(self, bag, paramstring, collection, ingested=True):
     """
     Update Bag in Data Catalog with repository ingest status
@@ -110,7 +120,7 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
     return True
 
 
-@task()
+@app.task()
 def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
     """
     Ingest recipe json into Islandora repository.
@@ -186,7 +196,7 @@ def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
     return ({"Successful": success, "Failures": fail})
 
 
-@task()
+@app.task()
 def verify_solr_up():
     """
     Check that the solr application is running returning True or False
@@ -199,7 +209,7 @@ def verify_solr_up():
         return False
 
 
-@task()
+@app.task()
 def object_exists(uuid, namespace, method="solr"):
     """
     Uses local drush script to check that object exists
@@ -209,7 +219,7 @@ def object_exists(uuid, namespace, method="solr"):
       method: indicate which system to use to check existance: solr (default) or drush
     """
     if method == "drush":
-        return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) is not ""
+        return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) != ""
     elif method == "solr":
         resp = requests.get('http://localhost:8080/solr/select?q=PID:"{0}:{1}"&fl=numFound&wt=json'.format(namespace, uuid))
         data = loads(resp.text)
@@ -218,7 +228,7 @@ def object_exists(uuid, namespace, method="solr"):
         return False
 
 
-@task()
+@app.task()
 def ingest_status(recipe_url, namespace=None):
     """
     Polls the server to check that objects defined in the recipe_url exist on the server.
@@ -251,7 +261,7 @@ def ingest_status(recipe_url, namespace=None):
 
 
 
-@task()
+@app.task()
 def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     """
     Ingest a recipe into Islandora and then verify if it was loaded succeccfully.
@@ -301,7 +311,7 @@ def _item_manipulator(pid, namespace, operation):
     return drush_response
 
 
-@task()
+@app.task()
 def read_item(pid, namespace):
     """
     Read details of an object in Islandora
@@ -313,7 +323,7 @@ def read_item(pid, namespace):
     return _item_manipulator(pid, namespace, 'read')
 
 
-@task()
+@app.task()
 def delete_item(pid, namespace):
     """
     Delete an object from Islandora
@@ -326,14 +336,14 @@ def delete_item(pid, namespace):
     return True
 
 
-@task()
+@app.task()
 def clear_drush_cache():
     check_call(["drush", "cache-clear", "drush"])
     return True
 
 
 # added to asssist with testing connectivity
-@task()
+@app.task()
 def add(x, y):
     """ Example task that adds two numbers or strings
         args: x and y

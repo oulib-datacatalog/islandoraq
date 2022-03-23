@@ -5,7 +5,7 @@ try:
 except ImportError:
     from mock import MagicMock, Mock, patch
 
-from islandoraq.tasks.tasks import verify_solr_up, searchcatalog, updatecatalog
+from islandoraq.tasks.tasks import verify_solr_up, searchcatalog, updatecatalog, ingest_status
 from requests.exceptions import HTTPError
 
 
@@ -143,3 +143,8 @@ def test_verify_solr_down(mock_get):
     mock_get.return_value.ok = False
     response = verify_solr_up()
     assert_false(response)
+
+@nottest  # TODO: complete test
+def test_ingest_status():
+    ingest_status()
+    raise Exception("Testin...")
