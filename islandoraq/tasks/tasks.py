@@ -11,7 +11,7 @@ import logging
 import grp
 import requests
 from requests.exceptions import ConnectionError
-import pycurl
+#import pycurl
 
 from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
 
@@ -203,30 +203,31 @@ def ingest_status(recipe_url, use_web=False, namespace=None):
     page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
 
     if use_web:
-        # Setup curl connection to resolve ISLANDORA_FQDN to 127.0.0.1
-        repo = pycurl.Curl()
-        repo.setopt(repo.RESOLVE, [resolve])
-        repo.setopt(repo.SSL_VERIFYPEER, 0)
-        repo.setopt(repo.WRITEFUNCTION, lambda x: None)
-
-        # Check that book is loaded
-        repo.setopt(repo.URL, uuid_url.format(ISLANDORA_FQDN, book_uuid))
-        repo.perform()
-        book_status = repo.getinfo(repo.RESPONSE_CODE)
-        if book_status != 200:
-            return {"book": book_uuid, "page_status": None, "successful_load": False, 
-                    "error": "Book not loaded. Received status {0}".format(book_status)}
-    
-        # Check individual pages exist
-        status = {}
-        for uuid in page_uuids:
-            page_url = uuid_url.format(ISLANDORA_FQDN, uuid)
-            repo.setopt(repo.URL, page_url)
-            repo.perform()
-            status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
-        
-        successful_load = all([value == 200 for value in status.values()])
-    
+        raise Exception("PyCurl use has been disabled!")
+    #    # Setup curl connection to resolve ISLANDORA_FQDN to 127.0.0.1
+    #    repo = pycurl.Curl()
+    #    repo.setopt(repo.RESOLVE, [resolve])
+    #    repo.setopt(repo.SSL_VERIFYPEER, 0)
+    #    repo.setopt(repo.WRITEFUNCTION, lambda x: None)
+    #
+    #    # Check that book is loaded
+    #    repo.setopt(repo.URL, uuid_url.format(ISLANDORA_FQDN, book_uuid))
+    #    repo.perform()
+    #    book_status = repo.getinfo(repo.RESPONSE_CODE)
+    #    if book_status != 200:
+    #        return {"book": book_uuid, "page_status": None, "successful_load": False, 
+    #                "error": "Book not loaded. Received status {0}".format(book_status)}
+    #
+    #    # Check individual pages exist
+    #    status = {}
+    #    for uuid in page_uuids:
+    #        page_url = uuid_url.format(ISLANDORA_FQDN, uuid)
+    #        repo.setopt(repo.URL, page_url)
+    #        repo.perform()
+    #        status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
+    #    
+    #    successful_load = all([value == 200 for value in status.values()])
+    #
     else:
         if not object_exists(book_uuid, namespace):
             return {"book": book_uuid, "page_status": None, "successful_load": False, 
