@@ -23,7 +23,7 @@ except:
 try:
     import celeryconfig
 except ImportError:
-    logging.error('Failed to import celeryconfig - exiting!')
+    logging.error('Failed to import celeryconfig!')
     celeryconfig = None
 
 try:
