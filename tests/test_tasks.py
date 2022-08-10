@@ -229,12 +229,10 @@ def test_ingest_recipe_with_url_404(mock_requests_get, mock_check_output, mock_r
 def test_verify_solr_up(mock_get):
     mock_get.return_value.ok=True
     response = verify_solr_up()
-    #assert_true(response)
     assert response == True
 
     mock_get.return_value.ok=False
     response = verify_solr_up()
-    #assert_false(response)
     assert response == False
 
 
@@ -242,10 +240,9 @@ def test_verify_solr_up(mock_get):
 def test_verify_solr_down(mock_get):
     mock_get.return_value.ok = False
     response = verify_solr_up()
-    #assert_false(response)
     assert response == False
 
-#@nottest  # TODO: complete test
+
 @pytest.mark.skip(reason="not implemented")
 def test_ingest_status():
     ingest_status()
