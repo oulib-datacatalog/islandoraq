@@ -1,12 +1,25 @@
 import sys
-from nose.tools import assert_true, assert_false, assert_equal, nottest
-try:
-    from unittest.mock import MagicMock, Mock, patch
-except ImportError:
-    from mock import MagicMock, Mock, patch
+from os.path import exists
 
-from islandoraq.tasks.tasks import verify_solr_up, searchcatalog, updatecatalog, ingest_status
+from six import PY2
+
+if PY2:
+    from os.path import join
+    from mock import MagicMock, Mock, patch
+else:
+    from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from islandoraq.tasks.tasks import verify_solr_up, searchcatalog, updatecatalog, ingest_status, ingest_recipe
 from requests.exceptions import HTTPError
+
+
+mock_celeryconfig = patch("islandoraq.tasks.tasks.celeryconfig").start()
+mock_islandora_drupal_root = patch("islandoraq.tasks.tasks.ISLANDORA_DRUPAL_ROOT", return_value="/tmp").start()
+mock_islandora_fqdn = patch("islandoraq.tasks.tasks.ISLANDORA_FQDN", return_value="test.somesite").start()
+mock_path = patch("islandoraq.tasks.tasks.PATH", return_value="/tmp").start()
+mock_cybercommons_token = patch("islandoraq.tasks.tasks.CYBERCOMMONS_TOKEN", return_value="test").start()
 
 
 @patch('islandoraq.tasks.tasks.requests.get')
@@ -27,7 +40,7 @@ def test_searchcatalog_not_found(mock_get):
     mock_get.return_value = Mock(ok=True)
     mock_get.return_value.text = not_found
     response = searchcatalog("test_bag")
-    assert_false(response)
+    assert response == None
 
 
 @patch('islandoraq.tasks.tasks.requests.get')
@@ -92,8 +105,8 @@ def test_searchcatalog_found(mock_get):
     mock_get.return_value = Mock(ok=True)
     mock_get.return_value.text = found
     response = searchcatalog("Tyler_2019")
-    assert_equal(response['bag'], "Tyler_2019")
-    assert_equal(response['project'], 'fake_bag')
+    assert response['bag'] == "Tyler_2019"
+    assert response['project'] == 'fake_bag'
 
 
 @patch('islandoraq.tasks.tasks.requests.post')
@@ -102,7 +115,7 @@ def test_updatecatalog_success(mock_search, mock_post):
     mock_search.return_value = {}
     mock_post.return_value = Mock(ok=True)
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
-    assert_true(response)
+    assert response == True
 
 
 @patch('islandoraq.tasks.tasks.requests.post')
@@ -111,10 +124,10 @@ def test_updatecatalog_fail_not_in_catalog(mock_search, mock_post):
     mock_search.return_value = None
     mock_post.return_value = Mock(ok=True)
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
-    assert_false(response)
+    assert response == False
 
 
-@nottest  #FIXME: This is not raising the HTTPError side effect
+@pytest.mark.skip(reason="This is not raising the HTTPError side effect")
 @patch('islandoraq.tasks.tasks.requests.post')
 @patch('islandoraq.tasks.tasks.searchcatalog')
 def test_updatecatalog_fail_server_500(mock_search, mock_post):
@@ -122,29 +135,96 @@ def test_updatecatalog_fail_server_500(mock_search, mock_post):
     mock_post.return_value.status_code = 500
     mock_post.raise_for_status = Mock(side_effect=HTTPError("500 Server Error"))
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
-    assert_false(response)
+    assert response == False
 
 
-@nottest  # TODO: complete test
-@patch('islandoraq.tasks.tasks.requests.head')
-def test_ingest_recipe(mock_head):
-    mock_head.return_value.status_code = 200
+@patch('islandoraq.tasks.tasks.grp.getgrnam')
+@patch('islandoraq.tasks.tasks.chown')
+@patch('islandoraq.tasks.tasks.mkdtemp')
+@patch('islandoraq.tasks.tasks.rmtree')
+@patch('islandoraq.tasks.tasks.check_output')
+def test_ingest_recipe_with_recipe_object(mock_check_output, mock_rmtree, mock_mkdtemp, mock_chown, mock_getgrnam, tmp_path):
+    recipe = {
+        "recipe": {
+            "uuid": "test", 
+            "update": "true", 
+            "label": "Test Collection", 
+            "import": "collection", 
+            "metadata": {
+                "mods": "test_collection_mods.xml"
+            },
+            "members": [
+                {
+                    "files": {
+                        "tn": "recording-tn.jpg", 
+                        "obj": "https://test.somesite.test/nonexistent_path/test.mp3"
+                    }, 
+                    "uuid": "test", 
+                    "update": "true", 
+                    "label": "test item label", 
+                    "import": "audio", 
+                    "metadata": {
+                        "mods": "test_item_mods.xml"
+                    }
+                }
+            ]
+        }
+    }
+    mock_mkdtemp.return_value = str(tmp_path)
+    ingest_recipe(recipe)
+    
+    if PY2:
+        recipe_file = join(str(tmp_path), "cc_recipe.json")
+    else:
+        recipe_file = tmp_path / "cc_recipe.json"
+    
+    assert exists(recipe_file)
+
+
+@patch('islandoraq.tasks.tasks.grp.getgrnam')
+@patch('islandoraq.tasks.tasks.chown')
+@patch('islandoraq.tasks.tasks.mkdtemp')
+@patch('islandoraq.tasks.tasks.rmtree')
+@patch('islandoraq.tasks.tasks.check_output')
+@patch('islandoraq.tasks.tasks.requests.get')
+def test_ingest_recipe_with_url(mock_requests_get, mock_check_output, mock_rmtree, mock_mkdtemp, mock_chown, mock_getgrnam, tmp_path):
+    recipe = "https://test.somesite.com/nonexistent_path/test.json"
+    
+    mock_requests_get.return_value = Mock(status_code=200, content={"recipe": {"uuid": "test"}})
+
+    mock_mkdtemp.return_value = str(tmp_path)
+    ingest_recipe(recipe)
+    
+    if PY2:
+        recipe_file = join(str(tmp_path), "cc_recipe.json")
+    else:
+        recipe_file = tmp_path / "cc_recipe.json"
+    
+    assert exists(recipe_file)
 
 
 @patch('islandoraq.tasks.tasks.requests.get')
 def test_verify_solr_up(mock_get):
     mock_get.return_value.ok=True
     response = verify_solr_up()
-    assert_true(response)
+    #assert_true(response)
+    assert response == True
+
+    mock_get.return_value.ok=False
+    response = verify_solr_up()
+    #assert_false(response)
+    assert response == False
 
 
 @patch('islandoraq.tasks.tasks.requests.get')
 def test_verify_solr_down(mock_get):
     mock_get.return_value.ok = False
     response = verify_solr_up()
-    assert_false(response)
+    #assert_false(response)
+    assert response == False
 
-@nottest  # TODO: complete test
+#@nottest  # TODO: complete test
+@pytest.mark.skip(reason="not implemented")
 def test_ingest_status():
     ingest_status()
-    raise Exception("Testin...")
+    raise Exception("Testing...")
