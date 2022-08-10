@@ -203,6 +203,28 @@ def test_ingest_recipe_with_url(mock_requests_get, mock_check_output, mock_rmtre
     assert exists(recipe_file)
 
 
+@patch('islandoraq.tasks.tasks.grp.getgrnam')
+@patch('islandoraq.tasks.tasks.chown')
+@patch('islandoraq.tasks.tasks.mkdtemp')
+@patch('islandoraq.tasks.tasks.rmtree')
+@patch('islandoraq.tasks.tasks.check_output')
+@patch('islandoraq.tasks.tasks.requests.get')
+def test_ingest_recipe_with_url_404(mock_requests_get, mock_check_output, mock_rmtree, mock_mkdtemp, mock_chown, mock_getgrnam, tmp_path):
+    recipe = "https://test.somesite.com/nonexistent_path/test.json"
+    
+    mock_requests_get.return_value = Mock(status_code=404, content={"recipe": {"uuid": "test"}})
+
+    mock_mkdtemp.return_value = str(tmp_path)
+    results = ingest_recipe(recipe)
+    
+    if PY2:
+        recipe_file = join(str(tmp_path), "cc_recipe.json")
+    else:
+        recipe_file = tmp_path / "cc_recipe.json"
+    
+    assert results == {'Failures': [[recipe, 'Server status 404']], 'Successful': []}
+
+
 @patch('islandoraq.tasks.tasks.requests.get')
 def test_verify_solr_up(mock_get):
     mock_get.return_value.ok=True
