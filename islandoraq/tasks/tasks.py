@@ -24,13 +24,16 @@ try:
     import celeryconfig
 except ImportError:
     logging.error('Failed to import celeryconfig - exiting!')
-    exit()
+    celeryconfig = None
 
 try:
     from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
 except ImportError:
     logging.error("Failed to import environment variables from celeryconfig!")
-    exit()
+    ISLANDORA_DRUPAL_ROOT = ""
+    ISLANDORA_FQDN = ""
+    PATH = ""
+    CYBERCOMMONS_TOKEN = ""
 
 app = Celery()
 app.config_from_object(celeryconfig)
@@ -163,6 +166,7 @@ def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
                 logging.error("Invalid recipe at: {0}".format(recipe_uri))
                 fail.append([recipe_uri, "Invalid recipe: {0}".format(recipe_uri)])
                 continue
+            recipe = testresp.content
         tmpdir = mkdtemp(prefix="recipeloader_")
         logging.debug("created working dir: {0}".format(tmpdir))
         chmod(tmpdir, 0o775)
