@@ -40,7 +40,7 @@ def test_searchcatalog_not_found(mock_get):
     mock_get.return_value = Mock(ok=True)
     mock_get.return_value.text = not_found
     response = searchcatalog("test_bag")
-    assert response == None
+    assert response == {}
 
 
 @patch('islandoraq.tasks.tasks.requests.get')
@@ -112,7 +112,7 @@ def test_searchcatalog_found(mock_get):
 @patch('islandoraq.tasks.tasks.requests.post')
 @patch('islandoraq.tasks.tasks.searchcatalog')
 def test_updatecatalog_success(mock_search, mock_post):
-    mock_search.return_value = {}
+    mock_search.return_value = {"bag": "Tyler_2019", "project": "fake_bag"}
     mock_post.return_value = Mock(ok=True)
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
     assert response == True
@@ -121,21 +121,21 @@ def test_updatecatalog_success(mock_search, mock_post):
 @patch('islandoraq.tasks.tasks.requests.post')
 @patch('islandoraq.tasks.tasks.searchcatalog')
 def test_updatecatalog_fail_not_in_catalog(mock_search, mock_post):
-    mock_search.return_value = None
+    mock_search.return_value = {}
     mock_post.return_value = Mock(ok=True)
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
     assert response == False
 
 
-@pytest.mark.skip(reason="This is not raising the HTTPError side effect")
+@pytest.mark.skip(reason="Need to test for exceeded retries")
 @patch('islandoraq.tasks.tasks.requests.post')
 @patch('islandoraq.tasks.tasks.searchcatalog')
-def test_updatecatalog_fail_server_500(mock_search, mock_post):
-    mock_search.return_value = {}
-    mock_post.return_value.status_code = 500
-    mock_post.raise_for_status = Mock(side_effect=HTTPError("500 Server Error"))
+@patch('islandoraq.tasks.tasks.app.Task.retry')
+def test_updatecatalog_fail_server_500(mock_retry, mock_search, mock_post):
+    mock_search.return_value = {"bag": "Tyler_2019", "project": "fake_bag"}
+    mock_post.side_effect = HTTPError("500 Server Error")
     response = updatecatalog(bag="Tyler_2019", paramstring="jpeg_040_antialias", collection="oku:hos")
-    assert response == False
+    assert mock_retry.called
 
 
 @patch('islandoraq.tasks.tasks.grp.getgrnam')

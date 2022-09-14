@@ -3,7 +3,7 @@ from os import chown
 from os import chmod
 from os import environ, pathsep
 from os.path import join
-from subprocess import check_call, check_output, CalledProcessError
+from subprocess import check_call, check_output, CalledProcessError, STDOUT
 from shutil import rmtree
 from tempfile import mkdtemp
 from json import loads, dumps
@@ -75,6 +75,7 @@ def searchcatalog(bag):
     catalogitems = loads(resp.text)
     if catalogitems['count']:
         return catalogitems['results'][0]
+    return {}
 
 
 @app.task(bind=True)
@@ -102,9 +103,8 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
     }
     """
     catalogitem = searchcatalog(bag)
-    if catalogitem == None:
+    if not catalogitem.get("bag"):
         return False  # this bag does not have a catalog entry
-   
     if "application" not in catalogitem:
         catalogitem["application"] = {}
     if "islandora" not in catalogitem["application"]:
@@ -181,6 +181,7 @@ def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
             drush_response = None
             drush_response = check_output(
                 ingest_template.format(recipe_uri.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                stderr=STDOUT,  # include stderr in output
                 shell=True
             )
             logging.debug(drush_response)
