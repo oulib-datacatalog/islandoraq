@@ -1,8 +1,9 @@
-from celery.task import task
+from celery import Celery
 from os import chown
 from os import chmod
 from os import environ, pathsep
-from subprocess import check_call, check_output, CalledProcessError
+from os.path import join
+from subprocess import check_call, check_output, CalledProcessError, STDOUT
 from shutil import rmtree
 from tempfile import mkdtemp
 from json import loads, dumps
@@ -11,11 +12,31 @@ import logging
 import grp
 import requests
 from requests.exceptions import ConnectionError
-#import pycurl
-
-from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
 
 logging.basicConfig(level=logging.INFO)
+
+try:
+    from urlparse import urlparse
+except:
+    from urllib.parse import urlparse
+
+try:
+    import celeryconfig
+except ImportError:
+    logging.error('Failed to import celeryconfig!')
+    celeryconfig = None
+
+try:
+    from celeryconfig import ISLANDORA_DRUPAL_ROOT, ISLANDORA_FQDN, PATH, CYBERCOMMONS_TOKEN
+except ImportError:
+    logging.error("Failed to import environment variables from celeryconfig!")
+    ISLANDORA_DRUPAL_ROOT = ""
+    ISLANDORA_FQDN = ""
+    PATH = ""
+    CYBERCOMMONS_TOKEN = ""
+
+app = Celery()
+app.config_from_object(celeryconfig)
 
 ingest_template = "drush -u 1 oubib --recipe_uri={0} --parent_collection={1} --pid_namespace={2} --tmp_dir={3} --root={4}"
 crud_template = "drush -u 1 iim --pid={0}:{1} --operation={2} --root={3}"
@@ -28,14 +49,36 @@ search_url = "{0}?query={{\"filter\": {{\"bag\": \"{1}\"}}}}"
 environ["PATH"] = PATH + pathsep + environ["PATH"]
 
 
+def is_uri(item):
+    """ check if item looks like a uri returning True or False """
+    if type(item) != str:
+        return False
+    else:
+        return urlparse(item).netloc != ''
+
+
+def is_recipe(item):
+    """ check if item looks like a valid recipe file returning True or False """
+    if type(item) == dict and item.get("recipe"):
+        return True
+    elif type(item) in [str, bytes]:
+        try:
+            return loads(item).get("recipe") is not None
+        except:
+            return False
+    else:
+        return False
+
+
 def searchcatalog(bag):
     resp = requests.get(search_url.format(catalog_url, bag))
     catalogitems = loads(resp.text)
     if catalogitems['count']:
         return catalogitems['results'][0]
+    return {}
 
 
-@task(bind=True)
+@app.task(bind=True)
 def updatecatalog(self, bag, paramstring, collection, ingested=True):
     """
     Update Bag in Data Catalog with repository ingest status
@@ -60,9 +103,8 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
     }
     """
     catalogitem = searchcatalog(bag)
-    if catalogitem == None:
+    if not catalogitem.get("bag"):
         return False  # this bag does not have a catalog entry
-   
     if "application" not in catalogitem:
         catalogitem["application"] = {}
     if "islandora" not in catalogitem["application"]:
@@ -81,19 +123,19 @@ def updatecatalog(self, bag, paramstring, collection, ingested=True):
     return True
 
 
-@task()
-def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
+@app.task()
+def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
     """
-    Ingest recipe json file into Islandora repository.
+    Ingest recipe json into Islandora repository.
     
     This kickstarts the Islandora local process to import a book collection.
     
     args:
-      recipe_urls: List of URLs pointing to json formatted recipe files
+      recipes: List of URLs pointing to JSON recipe objects or list of JSON recipe objects
       collection: Name of Islandora collection to ingest to. Default is: oku:hos 
       pid_namespace: Namespace to ingest recipe. Default is first half of collection name
     """
-    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipe_urls, collection, pid_namespace))
+    logging.debug("ingest recipe args: {0}, {1}, {2}".format(recipes, collection, pid_namespace))
     logging.debug("Environment: {0}".format(environ))
     
     #ISLANDORA_DRUPAL_ROOT = environ.get("ISLANDORA_DRUPAL_ROOT")
@@ -107,42 +149,59 @@ def ingest_recipe(recipe_urls, collection='oku:hos', pid_namespace=None):
 
     logging.debug("Drupal root path: {0}".format(ISLANDORA_DRUPAL_ROOT))
 
-    recipe_urls = [recipe_urls] if not isinstance(recipe_urls, list) else recipe_urls
+    recipes = [recipes] if not isinstance(recipes, list) else recipes
     
     fail = [] 
     success = []
-    for recipe_url in recipe_urls:
-        logging.debug("ingesting: {0}".format(recipe_url.strip()))
-        testresp = requests.head(recipe_url, allow_redirects=True)
-        if testresp.status_code == requests.codes.ok:
-            tmpdir = mkdtemp(prefix="recipeloader_")
-            logging.debug("created working dir: {0}".format(tmpdir))
-            chmod(tmpdir, 0o775)
-            chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
-            try:
-                drush_response = None
-                drush_response = check_output(
-                    ingest_template.format(recipe_url.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
-                    shell=True
-                )
-                logging.debug(drush_response)
-                success.append(recipe_url)
-            except CalledProcessError as err:
-                fail.append([recipe_url, "Drush status {0}".format(err.returncode)])
-                logging.error(drush_response)
-                logging.error(err)
-                logging.error(environ)
-            finally:
-                rmtree(tmpdir)
-                logging.debug("removed working dir")
-        else:
-            logging.error("Issue getting recipe at: {0}".format(recipe_url))
-            fail.append([recipe_url, "Server status {0}".format(testresp.status_code)])
-            
+    for recipe in recipes:
+        logging.debug("ingesting: {0}".format(recipe))
+        if is_uri(recipe):
+            recipe_uri = recipe
+            testresp = requests.get(recipe_uri, allow_redirects=True)
+            if testresp.status_code != requests.codes.ok:
+                logging.error("Issue getting recipe at: {0}".format(recipe_uri))
+                fail.append([recipe_uri, "Server status {0}".format(testresp.status_code)])
+                continue
+            if not is_recipe(testresp.content):
+                logging.error("Invalid recipe at: {0}".format(recipe_uri))
+                fail.append([recipe_uri, "Invalid recipe: {0}".format(recipe_uri)])
+                continue
+            recipe = testresp.content
+        tmpdir = mkdtemp(prefix="recipeloader_")
+        logging.debug("created working dir: {0}".format(tmpdir))
+        chmod(tmpdir, 0o775)
+        chown(tmpdir, -1, grp.getgrnam("apache").gr_gid)
+        try:
+            if not is_uri(recipe):
+                if not is_recipe(recipe):
+                    raise Exception("Not a valid recipe object")
+                recipe_uri = join(tmpdir, "cc_recipe.json")
+                with open(recipe_uri, "w") as f:
+                    f.write(dumps(recipe))
+            drush_response = None
+            drush_response = check_output(
+                ingest_template.format(recipe_uri.strip(), collection, pid_namespace, tmpdir, ISLANDORA_DRUPAL_ROOT),
+                stderr=STDOUT,  # include stderr in output
+                shell=True
+            )
+            logging.debug(drush_response)
+            success.append(recipe)
+        except CalledProcessError as err:
+            fail.append([recipe, "Drush status {0}".format(err.returncode)])
+            logging.error(drush_response)
+            logging.error(err)
+            logging.error(environ)
+        except Exception as err:
+            fail.append([recipe, err])
+            logging.error(err)
+            logging.error(recipe)
+        finally:
+            rmtree(tmpdir)
+            logging.debug("removed working dir")
     return ({"Successful": success, "Failures": fail})
 
 
-@task()
+@app.task()
 def verify_solr_up():
     """
     Check that the solr application is running returning True or False
@@ -155,7 +214,7 @@ def verify_solr_up():
         return False
 
 
-@task()
+@app.task()
 def object_exists(uuid, namespace, method="solr"):
     """
     Uses local drush script to check that object exists
@@ -165,7 +224,7 @@ def object_exists(uuid, namespace, method="solr"):
       method: indicate which system to use to check existance: solr (default) or drush
     """
     if method == "drush":
-        return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) is not ""
+        return check_output(crud_template.format(namespace, uuid, 'read', ISLANDORA_DRUPAL_ROOT), shell=True) != ""
     elif method == "solr":
         resp = requests.get('http://localhost:8080/solr/select?q=PID:"{0}:{1}"&fl=numFound&wt=json'.format(namespace, uuid))
         data = loads(resp.text)
@@ -174,25 +233,16 @@ def object_exists(uuid, namespace, method="solr"):
         return False
 
 
-@task()
-def ingest_status(recipe_url, use_web=False, namespace=None):
+@app.task()
+def ingest_status(recipe_url, namespace=None):
     """
     Polls the server to check that objects defined in the recipe_url exist on the server.
     
     args:
       recipe_url: URL string pointing to a json formatted recipe file
-      use_web: Boolean setting to check over web - default is False
-      namespace: String indicating which collection to use - only used if use_web is False
+      namespace: String indicating which collection to use
     """
- 
-    if use_web and not ISLANDORA_FQDN:
-       logging.error("Missing ISLANDORA_FQDN")
-       logging.error(environ)
-       raise Exception("Missing Islandora FQDN. Contact your administrator")
-    
-    uuid_url = "https://{0}/uuid/{1}"
-    resolve = "{0}:443:127.0.0.1".format(ISLANDORA_FQDN)
-    
+   
     # Get UUIDs from recipe file
     try:
         recipe_text = requests.get(recipe_url).text
@@ -202,48 +252,21 @@ def ingest_status(recipe_url, use_web=False, namespace=None):
     book_uuid = recipe_data['recipe']['uuid']
     page_uuids = [page['uuid'] for page in recipe_data['recipe']['pages']]
 
-    if use_web:
-        raise Exception("PyCurl use has been disabled!")
-    #    # Setup curl connection to resolve ISLANDORA_FQDN to 127.0.0.1
-    #    repo = pycurl.Curl()
-    #    repo.setopt(repo.RESOLVE, [resolve])
-    #    repo.setopt(repo.SSL_VERIFYPEER, 0)
-    #    repo.setopt(repo.WRITEFUNCTION, lambda x: None)
-    #
-    #    # Check that book is loaded
-    #    repo.setopt(repo.URL, uuid_url.format(ISLANDORA_FQDN, book_uuid))
-    #    repo.perform()
-    #    book_status = repo.getinfo(repo.RESPONSE_CODE)
-    #    if book_status != 200:
-    #        return {"book": book_uuid, "page_status": None, "successful_load": False, 
-    #                "error": "Book not loaded. Received status {0}".format(book_status)}
-    #
-    #    # Check individual pages exist
-    #    status = {}
-    #    for uuid in page_uuids:
-    #        page_url = uuid_url.format(ISLANDORA_FQDN, uuid)
-    #        repo.setopt(repo.URL, page_url)
-    #        repo.perform()
-    #        status[uuid] = repo.getinfo(repo.RESPONSE_CODE)
-    #    
-    #    successful_load = all([value == 200 for value in status.values()])
-    #
-    else:
-        if not object_exists(book_uuid, namespace):
-            return {"book": book_uuid, "page_status": None, "successful_load": False, 
-                    "error": "Book not loaded. Book's UUID not found: {0}".format(book_uuid)}
+    if not object_exists(book_uuid, namespace):
+        return {"book": book_uuid, "page_status": None, "successful_load": False, 
+                "error": "Book not loaded. Book's UUID not found: {0}".format(book_uuid)}
 
-        status = {}
-        for uuid in page_uuids:
-            status[uuid] = object_exists(uuid, namespace)
+    status = {}
+    for uuid in page_uuids:
+        status[uuid] = object_exists(uuid, namespace)
 
-        successful_load = all([value for value in status.values()])
+    successful_load = all([value for value in status.values()])
     
     return {"book": book_uuid, "page_status": status, "successful_load": successful_load}
 
 
 
-@task()
+@app.task()
 def ingest_and_verify(recipe_url, collection='oku:hos', pid_namespace=None):
     """
     Ingest a recipe into Islandora and then verify if it was loaded succeccfully.
@@ -293,7 +316,7 @@ def _item_manipulator(pid, namespace, operation):
     return drush_response
 
 
-@task()
+@app.task()
 def read_item(pid, namespace):
     """
     Read details of an object in Islandora
@@ -305,7 +328,7 @@ def read_item(pid, namespace):
     return _item_manipulator(pid, namespace, 'read')
 
 
-@task()
+@app.task()
 def delete_item(pid, namespace):
     """
     Delete an object from Islandora
@@ -318,14 +341,14 @@ def delete_item(pid, namespace):
     return True
 
 
-@task()
+@app.task()
 def clear_drush_cache():
     check_call(["drush", "cache-clear", "drush"])
     return True
 
 
 # added to asssist with testing connectivity
-@task()
+@app.task()
 def add(x, y):
     """ Example task that adds two numbers or strings
         args: x and y

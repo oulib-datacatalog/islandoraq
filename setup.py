@@ -2,13 +2,14 @@
 #ez_setup.use_setuptools()
 from setuptools import setup, find_packages
 setup(name='islandoraq',
-      version='0.2.8',
+      version='0.3.4',
       packages= find_packages(),
       install_requires=[
-          'celery==3.1.22',
-          'pymongo==3.2.1',
+          'celery==5.2.2 ; python_version >= "3.7"',
+          'celery==3.1.22 ; python_version == "2.7"',
+          'pymongo==3.12.3; python_version > "2.7"',
+          'pymongo==3.2.1; python_version == "2.7"',
           'requests==2.24.0',
-          #'pycurl==7.43.0',
       ],
       include_package_data=True,
 )
