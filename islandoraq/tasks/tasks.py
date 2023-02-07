@@ -162,11 +162,11 @@ def ingest_recipe(recipes, collection='oku:hos', pid_namespace=None):
                 logging.error("Issue getting recipe at: {0}".format(recipe_uri))
                 fail.append([recipe_uri, "Server status {0}".format(testresp.status_code)])
                 continue
-            if not is_recipe(testresp.content):
+            if not is_recipe(testresp.json()):
                 logging.error("Invalid recipe at: {0}".format(recipe_uri))
                 fail.append([recipe_uri, "Invalid recipe: {0}".format(recipe_uri)])
                 continue
-            recipe = testresp.content
+            recipe = testresp.json()
         tmpdir = mkdtemp(prefix="recipeloader_")
         logging.debug("created working dir: {0}".format(tmpdir))
         chmod(tmpdir, 0o775)
