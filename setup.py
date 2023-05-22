@@ -10,7 +10,7 @@ setup(name='islandoraq',
           'pymongo==4.3.3; python_version >= "3.7"',
           'pymongo==3.2.1; python_version == "2.7"',
           'requests==2.28.2; python_version >= "3.7"',
-          'requests==2.24.0; python_version == "2.7"',
+          'requests==2.31.0; python_version == "2.7"',
       ],
       include_package_data=True,
 )
